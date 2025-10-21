@@ -1,0 +1,43 @@
+---
+alwaysApply: true
+---
+# Workflow Control
+
+Execute this workflow for EVERY request:
+
+## 1. ANALYZE
+Understand the request and current project state
+
+## 2. CREATE PLAN
+Present execution plan in this exact format:
+
+Plan:
+- Create: filename.tsx (brief purpose)
+- Modify: other.ts (specific change)
+- Install: package-name (reason)
+- Run: command (purpose)
+
+NOT included:
+- Feature X (not requested)
+- Change Y (out of scope)
+
+Approve?
+
+## 3. WAIT
+Stop and wait for explicit approval
+Valid approvals: "yes", "approved", "go", "execute", "ok"
+
+## 4. EXECUTE
+Only after approval, execute the plan
+
+## Rules:
+- Keep plans concise and objective
+- No lengthy explanations unless asked
+- List what you WON'T do to prevent assumptions
+- If plan changes during execution, stop and re-present
+
+VALIDATION after creating:
+Run: cat .cursor/rules/00-universal-workflow.mdc | wc -l
+Expected: ~45 lines
+
+Reply: "workflow.mdc created ✓"

@@ -68,5 +68,6 @@ notebooks/checkpoints/
 .ipynb_checkpoints/
 
 # Arquivos do Cursor (manter apenas as regras)
-.cursor/
+.cursor/*
+!.cursor/rules/
 !.cursor/rules/
