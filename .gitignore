@@ -1,0 +1,72 @@
+# Arquivos e diretórios ignorados pelo Git
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Arquivos de configuração do editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Arquivos temporários
+*.tmp
+*.temp
+*.log
+
+# Dependências
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Arquivos de build
+dist/
+build/
+*.egg-info/
+.coverage
+.pytest_cache/
+
+# Arquivos de dados grandes
+*.csv
+*.json
+*.xlsx
+*.pkl
+*.h5
+*.model
+
+# Arquivos de configuração local
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Arquivos de backup
+*.bak
+*.backup
+*.old
+
+# Arquivos específicos do projeto ML
+data/
+models/
+notebooks/checkpoints/
+*.joblib
+*.pickle
+
+# Arquivos do Jupyter
+.ipynb_checkpoints/
+
+# Arquivos do Cursor (manter apenas as regras)
+.cursor/
+!.cursor/rules/
