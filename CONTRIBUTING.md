@@ -312,11 +312,23 @@ git commit
 # Editor abrirá com template .gitmessage
 ```
 
-### 4. Push
+### 4. Push (Automático)
+
+**IMPORTANTE**: Todos os commits são automaticamente enviados para o repositório remoto.
+
+O sistema está configurado para fazer push automaticamente após cada commit. Não é necessário executar `git push` manualmente.
 
 ```bash
-git push origin feat/nova-funcionalidade
+# Push automático após commit (configurado)
+git push -u origin feat/nova-funcionalidade
 ```
+
+Se estiver trabalhando no branch `main`:
+```bash
+git push -u origin main
+```
+
+**Nota**: O push automático garante que o repositório remoto esteja sempre sincronizado com as alterações locais.
 
 ---
 
