@@ -19,13 +19,19 @@ export default function CenarioCard({
 }: CenarioCardProps) {
   const [isOpen, setIsOpen] = useState(false);
 
-  const moeda = produto ? ((produto.moeda as 'USD' | 'BRL') || 'USD') : 'USD';
-  const custoUnitario = produto
+  const moeda = produto ? (((produto as any).moeda as 'USD' | 'BRL') || 'USD') : 'USD';
+  const precoUSD = produto ? (produto as any).precoUSD : undefined;
+  const cotacao = produto ? (produto as any).cotacao : undefined;
+  const freteTotal = produto ? (produto as any).freteTotal : undefined;
+  
+  const temDadosCusto = produto && precoUSD !== undefined && cotacao !== undefined && freteTotal !== undefined;
+  
+  const custoUnitario = temDadosCusto
     ? calcularCustoTotal(
-        produto.precoUSD,
-        produto.cotacao,
-        produto.freteTotal,
-        produto.quantidade || 1,
+        precoUSD!,
+        cotacao!,
+        freteTotal!,
+        produto!.quantidade || 1,
         moeda
       )
     : 0;

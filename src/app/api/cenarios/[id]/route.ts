@@ -90,11 +90,22 @@ export async function PATCH(
 
     if (precisaRecalcular) {
       // Calcular custo total do produto
-      const moeda = (produto.moeda as 'USD' | 'BRL') || 'USD';
+      const precoUSD = (produto as any).precoUSD;
+      const cotacao = (produto as any).cotacao;
+      const freteTotal = (produto as any).freteTotal;
+      const moeda = ((produto as any).moeda as 'USD' | 'BRL') || 'USD';
+      
+      if (!precoUSD || !cotacao || freteTotal === undefined) {
+        return NextResponse.json(
+          { error: 'Produto não possui dados de custo. Use o sistema de compras para produtos PROD.' },
+          { status: 400 }
+        );
+      }
+      
       const custoTotal = calcularCustoTotal(
-        produto.precoUSD,
-        produto.cotacao,
-        produto.freteTotal,
+        precoUSD,
+        cotacao,
+        freteTotal,
         produto.quantidade || 1,
         moeda
       );

@@ -100,24 +100,30 @@ export default function ProdutoForm({
       validationErrors.push('Nome obrigatório (mínimo 3 caracteres)');
     }
 
+    // Campos de custo são opcionais agora (custos são registrados via compras para PROD)
+    // Para produtos LAB, esses campos não são necessários
     const precoUSDNum = parseFloat(precoUSD);
-    if (!precoUSD || isNaN(precoUSDNum) || precoUSDNum <= 0) {
+    const cotacaoNum = parseFloat(cotacao);
+    const freteTotalNum = parseFloat(freteTotal);
+    
+    // Validar apenas se os campos foram preenchidos (opcional)
+    if (precoUSD && !isNaN(precoUSDNum) && precoUSDNum <= 0) {
       validationErrors.push('Preço em USD deve ser maior que zero');
     }
 
-    const cotacaoNum = parseFloat(cotacao);
-    if (moeda === 'BRL') {
-      if (cotacaoNum !== 1.0) {
-        validationErrors.push('Quando moeda é BRL, cotação deve ser 1.00');
-      }
-    } else {
-      if (!cotacao || isNaN(cotacaoNum) || cotacaoNum <= 0) {
-        validationErrors.push('Cotação deve ser maior que zero');
+    if (cotacao && !isNaN(cotacaoNum)) {
+      if (moeda === 'BRL') {
+        if (cotacaoNum !== 1.0) {
+          validationErrors.push('Quando moeda é BRL, cotação deve ser 1.00');
+        }
+      } else {
+        if (cotacaoNum <= 0) {
+          validationErrors.push('Cotação deve ser maior que zero');
+        }
       }
     }
 
-    const freteTotalNum = parseFloat(freteTotal);
-    if (isNaN(freteTotalNum) || freteTotalNum < 0) {
+    if (freteTotal && (isNaN(freteTotalNum) || freteTotalNum < 0)) {
       validationErrors.push('Frete total deve ser maior ou igual a zero');
     }
 
@@ -133,11 +139,12 @@ export default function ProdutoForm({
 
     setLoading(true);
     try {
+      // Enviar apenas campos preenchidos (API ignora campos de custo de qualquer forma)
       await onSubmit({
         nome: nome.trim(),
-        precoUSD: precoUSDNum,
-        cotacao: cotacaoNum,
-        freteTotal: freteTotalNum,
+        precoUSD: precoUSD && !isNaN(precoUSDNum) ? precoUSDNum : 0,
+        cotacao: cotacao && !isNaN(cotacaoNum) ? cotacaoNum : 1,
+        freteTotal: freteTotal && !isNaN(freteTotalNum) ? freteTotalNum : 0,
         quantidade: quantidadeNum,
         fornecedor: fornecedor.trim() || null,
         tipo: isEditing ? undefined : tipo, // Não permite editar tipo

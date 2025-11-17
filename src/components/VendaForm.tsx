@@ -38,43 +38,85 @@ export default function VendaForm({ produtos, config, onSubmit }: VendaFormProps
   );
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [comprasDisponiveis, setComprasDisponiveis] = useState<Array<{
+    compra: {
+      id: number;
+      produtoId: number;
+      quantidadeDisponivel: number;
+      custoUnitario: number;
+      dataCompra: Date | number;
+    };
+    produto: any;
+  }>>([]);
+
+  useEffect(() => {
+    if (produtoId) {
+      fetch('/api/compras')
+        .then((res) => res.json())
+        .then((data) => {
+          const disponiveis = data.compras.filter(
+            (c: any) => c.compra.produtoId === produtoId && c.compra.quantidadeDisponivel > 0
+          );
+          // Ordenar por dataCompra ASC (FIFO - mais antigas primeiro)
+          disponiveis.sort((a: any, b: any) => {
+            const dataA = new Date(a.compra.dataCompra).getTime();
+            const dataB = new Date(b.compra.dataCompra).getTime();
+            return dataA - dataB;
+          });
+          setComprasDisponiveis(disponiveis);
+        })
+        .catch((error) => {
+          console.error('Erro ao buscar compras:', error);
+          setComprasDisponiveis([]);
+        });
+    } else {
+      setComprasDisponiveis([]);
+    }
+  }, [produtoId]);
 
   const produtoSelecionado = produtosDisponiveis.find(
     (p) => p.id === produtoId
   );
-  const estoqueDisponivel = produtoSelecionado?.quantidade || 0;
+  
+  // Calcular estoque disponível a partir das compras
+  const estoqueDisponivel = comprasDisponiveis.reduce(
+    (acc, item) => acc + item.compra.quantidadeDisponivel,
+    0
+  );
 
   // Calcular valores em tempo real
   const precoVendaNum = parseFloat(precoVenda) || 0;
   const quantidadeNum = parseFloat(quantidadeVendida) || 0;
   const freteNum = parseFloat(freteCobrado) || 0;
 
+  // Calcular custo via FIFO
   let custoTotal = 0;
+  if (comprasDisponiveis.length > 0 && quantidadeNum > 0) {
+    let qtdRestante = quantidadeNum;
+
+    for (const item of comprasDisponiveis) {
+      if (qtdRestante === 0) break;
+
+      const qtdUsar = Math.min(qtdRestante, item.compra.quantidadeDisponivel);
+      custoTotal += item.compra.custoUnitario * qtdUsar;
+      qtdRestante -= qtdUsar;
+    }
+  }
+
+  const custoUnitarioMedio = quantidadeNum > 0 ? custoTotal / quantidadeNum : 0;
+
   let taxaML = 0;
   let lucroLiquido = 0;
 
   if (produtoSelecionado && precoVendaNum > 0 && quantidadeNum > 0) {
-    // Calcular custo total do produto
-    custoTotal = calcularCustoTotal(
-      produtoSelecionado.precoUSD,
-      produtoSelecionado.cotacao,
-      produtoSelecionado.freteTotal,
-      produtoSelecionado.quantidade || 1
-    );
-
     // Calcular taxa ML
     const taxaPercent =
       tipoAnuncio === 'CLASSICO' ? config.taxaClassico : config.taxaPremium;
     taxaML = calcularTaxaML(precoVendaNum, taxaPercent);
 
     // Calcular lucro líquido
-    lucroLiquido = calcularLucro(
-      precoVendaNum,
-      quantidadeNum,
-      freteNum,
-      custoTotal,
-      taxaML
-    );
+    const receitaTotal = precoVendaNum * quantidadeNum + freteNum;
+    lucroLiquido = receitaTotal - custoTotal - taxaML;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -177,30 +219,37 @@ export default function VendaForm({ produtos, config, onSubmit }: VendaFormProps
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label
-            htmlFor="quantidadeVendida"
-            className="block text-sm font-medium text-foreground mb-1"
-          >
-            Quantidade Vendida
-            {produtoSelecionado && (
-              <span className="text-muted-foreground text-xs ml-1">
-                (Máx: {estoqueDisponivel})
-              </span>
-            )}
-          </label>
-          <input
-            type="number"
-            id="quantidadeVendida"
-            value={quantidadeVendida}
-            onChange={(e) => setQuantidadeVendida(e.target.value)}
-            className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-primary focus:border-primary"
-            min="1"
-            max={estoqueDisponivel}
-            required
-            disabled={!produtoSelecionado}
-          />
-        </div>
+      <div>
+        <label
+          htmlFor="quantidadeVendida"
+          className="block text-sm font-medium text-foreground mb-1"
+        >
+          Quantidade Vendida
+          {produtoSelecionado && (
+            <span className="text-muted-foreground text-xs ml-1">
+              (Máx: {estoqueDisponivel})
+            </span>
+          )}
+        </label>
+        <input
+          type="number"
+          id="quantidadeVendida"
+          value={quantidadeVendida}
+          onChange={(e) => setQuantidadeVendida(e.target.value)}
+          className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-primary focus:border-primary"
+          min="1"
+          max={estoqueDisponivel}
+          required
+          disabled={!produtoSelecionado}
+        />
+        {quantidadeNum > estoqueDisponivel && estoqueDisponivel > 0 && (
+          <div className="bg-destructive/10 border border-destructive text-destructive rounded-lg p-3 mt-2">
+            <p className="text-sm">
+              Estoque insuficiente! Disponível: {estoqueDisponivel} unidades
+            </p>
+          </div>
+        )}
+      </div>
 
         <div>
           <label
@@ -288,9 +337,9 @@ export default function VendaForm({ produtos, config, onSubmit }: VendaFormProps
           </div>
           <div className="text-sm text-muted-foreground space-y-1">
             <div className="flex justify-between">
-              <span>Custo Unitário:</span>
+              <span>Custo Unitário Médio (FIFO):</span>
               <span className="text-foreground">
-                R$ {custoTotal.toFixed(2)}
+                R$ {custoUnitarioMedio.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between">
@@ -304,9 +353,9 @@ export default function VendaForm({ produtos, config, onSubmit }: VendaFormProps
               <span className="text-foreground">R$ {taxaML.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
-              <span>Custo Total:</span>
+              <span>Custo Total (FIFO):</span>
               <span className="text-foreground">
-                R$ {(custoTotal * quantidadeNum).toFixed(2)}
+                R$ {custoTotal.toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between pt-2 border-t border-border">

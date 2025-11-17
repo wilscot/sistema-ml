@@ -1,8 +1,9 @@
 import { db, schema } from '@/db';
-import type { Produto, Cenario, Venda, Configuracao } from '@/db/schema';
-import { eq, and, isNull, gte, lte, desc } from 'drizzle-orm';
+import type { Produto, Cenario, Venda, Configuracao, Compra } from '@/db/schema';
+import { eq, and, isNull, gte, lte, desc, gt } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
-const { produtos, cenarios, vendas, configuracoes } = schema;
+const { produtos, cenarios, vendas, configuracoes, compras } = schema;
 
 /**
  * Retorna lista de produtos filtrados por tipo
@@ -175,4 +176,81 @@ export async function getConfig(): Promise<Configuracao> {
   }
 
   return config[0];
+}
+
+/**
+ * Retorna todas as compras de um produto
+ * @param produtoId - ID do produto
+ * @returns Array de compras ordenadas por dataCompra DESC (mais recentes primeiro)
+ */
+export function getComprasByProdutoId(produtoId: number) {
+  return db
+    .select()
+    .from(compras)
+    .where(eq(compras.produtoId, produtoId))
+    .orderBy(desc(compras.dataCompra))
+    .all();
+}
+
+/**
+ * Retorna compras disponíveis (com estoque > 0) de um produto
+ * Ordenado por dataCompra ASC (FIFO - mais antigas primeiro)
+ * @param produtoId - ID do produto
+ * @returns Array de compras com quantidadeDisponivel > 0, ordenadas por dataCompra ASC
+ */
+export function getComprasDisponiveisProduto(produtoId: number) {
+  return db
+    .select()
+    .from(compras)
+    .where(
+      and(
+        eq(compras.produtoId, produtoId),
+        gt(compras.quantidadeDisponivel, 0)
+      )
+    )
+    .orderBy(compras.dataCompra)
+    .all();
+}
+
+/**
+ * Retorna compra única por ID
+ * @param id - ID da compra
+ * @returns Compra ou undefined se não encontrada
+ */
+export function getCompraById(id: number) {
+  return db.select().from(compras).where(eq(compras.id, id)).get();
+}
+
+/**
+ * Retorna todas as compras com produtos associados
+ * @returns Array de objetos com compra e produto, ordenadas por dataCompra DESC
+ */
+export function getComprasComProdutos() {
+  return db
+    .select({
+      compra: compras,
+      produto: produtos,
+    })
+    .from(compras)
+    .leftJoin(produtos, eq(compras.produtoId, produtos.id))
+    .orderBy(desc(compras.dataCompra))
+    .all();
+}
+
+/**
+ * Deduz quantidade do estoque disponível de uma compra
+ * @param compraId - ID da compra
+ * @param quantidade - Quantidade a deduzir
+ * @returns Compra atualizada ou undefined se não encontrada
+ */
+export function deduzirEstoqueCompra(compraId: number, quantidade: number) {
+  return db
+    .update(compras)
+    .set({
+      quantidadeDisponivel: sql`${compras.quantidadeDisponivel} - ${quantidade}`,
+      updatedAt: sql`(unixepoch())`,
+    })
+    .where(eq(compras.id, compraId))
+    .returning()
+    .get();
 }

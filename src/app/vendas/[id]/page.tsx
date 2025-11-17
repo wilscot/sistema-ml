@@ -99,13 +99,16 @@ export default function VendaDetalhesPage() {
     );
   }
 
-  const custoUnitario = venda.produto
-    ? (venda.produto.precoUSD * venda.produto.cotacao +
-        venda.produto.freteTotal) /
-      (venda.produto.quantidade || 1)
+  const precoUSD = venda.produto ? (venda.produto as any).precoUSD : undefined;
+  const cotacao = venda.produto ? (venda.produto as any).cotacao : undefined;
+  const freteTotal = venda.produto ? (venda.produto as any).freteTotal : undefined;
+  const temDadosCusto = venda.produto && precoUSD !== undefined && cotacao !== undefined && freteTotal !== undefined;
+  
+  const custoUnitario = temDadosCusto
+    ? (precoUSD! * cotacao! + freteTotal!) / (venda.produto.quantidade || 1)
     : 0;
-  const custoTotal = custoUnitario * venda.quantidadeVendida;
-  const lucroLiquidoCalculado = venda.lucroLiquido - custoTotal;
+  const custoTotal = temDadosCusto ? custoUnitario * venda.quantidadeVendida : 0;
+  const lucroLiquidoCalculado = temDadosCusto ? venda.lucroLiquido - custoTotal : venda.lucroLiquido;
 
   return (
     <div className="container mx-auto px-4 py-8">

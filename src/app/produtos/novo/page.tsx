@@ -39,9 +39,9 @@ export default function NovoProdutoPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(
-          errorData.errors?.join(', ') || errorData.error || 'Erro ao criar produto'
-        );
+        const errorMsg = errorData.errors?.join(', ') || errorData.error || 'Erro ao criar produto';
+        const details = errorData.details ? `\n\nDetalhes: ${errorData.details}` : '';
+        throw new Error(errorMsg + details);
       }
 
       showToast('Produto criado com sucesso!', 'success');

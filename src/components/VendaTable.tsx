@@ -155,16 +155,25 @@ export default function VendaTable({
               const isSelected = vendasSelecionadas.has(venda.id);
               const podeDeletarVenda = !loading;
 
-              // Calcular custo do produto
-              const custoUnitario = calcularCustoTotal(
-                venda.produto.precoUSD,
-                venda.produto.cotacao,
-                venda.produto.freteTotal,
-                venda.produto.quantidade || 1,
-                (venda.produto.moeda as 'USD' | 'BRL') || 'USD'
-              );
-              const custoTotal = custoUnitario * venda.quantidadeVendida;
-              const lucroLiquido = venda.lucroLiquido - custoTotal;
+              // Calcular custo do produto (se disponível, senão usar lucroLiquido já calculado)
+              const precoUSD = (venda.produto as any).precoUSD;
+              const cotacao = (venda.produto as any).cotacao;
+              const freteTotal = (venda.produto as any).freteTotal;
+              const moeda = ((venda.produto as any).moeda as 'USD' | 'BRL') || 'USD';
+              
+              const temDadosCusto = precoUSD !== undefined && cotacao !== undefined && freteTotal !== undefined;
+              
+              const custoUnitario = temDadosCusto
+                ? calcularCustoTotal(
+                    precoUSD,
+                    cotacao,
+                    freteTotal,
+                    venda.produto.quantidade || 1,
+                    moeda
+                  )
+                : 0;
+              const custoTotal = temDadosCusto ? custoUnitario * venda.quantidadeVendida : 0;
+              const lucroLiquido = temDadosCusto ? venda.lucroLiquido - custoTotal : venda.lucroLiquido;
 
               return (
                 <tr

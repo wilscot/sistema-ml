@@ -46,29 +46,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validar campos obrigatórios
-    if (
-      !produtoOriginal.nome ||
-      !produtoOriginal.precoUSD ||
-      !produtoOriginal.cotacao ||
-      produtoOriginal.freteTotal === undefined
-    ) {
+    // Validar apenas campos obrigatórios (campos de custo foram removidos)
+    if (!produtoOriginal.nome) {
       return NextResponse.json(
-        { error: 'Produto com dados incompletos não pode ser migrado' },
+        { error: 'Produto com nome inválido não pode ser migrado' },
         { status: 400 }
       );
     }
 
     // Criar novo produto PROD (cópia do original)
+    // Nota: Campos de custo (precoUSD, cotacao, freteTotal, moeda, fornecedor)
+    // foram removidos do schema. Custos devem ser registrados via tabela compras.
     const novoProduto: NovoProduto = {
       nome: produtoOriginal.nome,
-      precoUSD: produtoOriginal.precoUSD,
-      cotacao: produtoOriginal.cotacao,
-      freteTotal: produtoOriginal.freteTotal,
-      quantidade: produtoOriginal.quantidade,
-      fornecedor: produtoOriginal.fornecedor ?? null,
       tipo: 'PROD',
-      deletedAt: null,
+      quantidade: produtoOriginal.quantidade ?? 0,
+      // deletedAt será null por padrão (produto ativo)
       // createdAt e updatedAt serão gerados automaticamente pelo schema
     };
 

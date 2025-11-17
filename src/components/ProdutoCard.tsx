@@ -18,13 +18,18 @@ export default function ProdutoCard({
   onMigrate,
 }: ProdutoCardProps) {
   const isLAB = produto.tipo === 'LAB';
-  const moeda = (produto.moeda as 'USD' | 'BRL') || 'USD';
+  const moeda = ((produto as any).moeda as 'USD' | 'BRL') || 'USD';
+  const precoUSD = (produto as any).precoUSD;
+  const cotacao = (produto as any).cotacao;
+  const freteTotal = (produto as any).freteTotal;
   
-  const custoTotal = produto.quantidade > 0
+  const temDadosCusto = precoUSD !== undefined && cotacao !== undefined && freteTotal !== undefined;
+  
+  const custoTotal = produto.quantidade > 0 && temDadosCusto
     ? calcularCustoTotal(
-        produto.precoUSD,
-        produto.cotacao,
-        produto.freteTotal,
+        precoUSD,
+        cotacao,
+        freteTotal,
         produto.quantidade,
         moeda
       ) * produto.quantidade
@@ -68,38 +73,59 @@ export default function ProdutoCard({
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-sm mb-4">
-        <div>
-          <span className="text-muted-foreground">Preço {moeda === 'BRL' ? '(R$)' : 'USD'}:</span>
-          <span className="ml-2 font-medium text-card-foreground">
-            {moeda === 'BRL' ? 'R$' : '$'}{produto.precoUSD.toFixed(2)}
-          </span>
-        </div>
-        <div>
-          <span className="text-muted-foreground">Cotação:</span>
-          <span className="ml-2 font-medium text-card-foreground">
-            R$ {produto.cotacao.toFixed(2)}
-          </span>
-        </div>
-        <div>
-          <span className="text-muted-foreground">Quantidade:</span>
-          <span className="ml-2 font-medium text-card-foreground">
-            {produto.quantidade}
-          </span>
-        </div>
-        <div>
-          <span className="text-muted-foreground">Frete:</span>
-          <span className="ml-2 font-medium text-card-foreground">
-            R$ {produto.freteTotal.toFixed(2)}
-          </span>
-        </div>
+        {temDadosCusto ? (
+          <>
+            <div>
+              <span className="text-muted-foreground">Preço {moeda === 'BRL' ? '(R$)' : 'USD'}:</span>
+              <span className="ml-2 font-medium text-card-foreground">
+                {moeda === 'BRL' ? 'R$' : '$'}{precoUSD.toFixed(2)}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Cotação:</span>
+              <span className="ml-2 font-medium text-card-foreground">
+                R$ {cotacao.toFixed(2)}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Quantidade:</span>
+              <span className="ml-2 font-medium text-card-foreground">
+                {produto.quantidade}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Frete:</span>
+              <span className="ml-2 font-medium text-card-foreground">
+                R$ {freteTotal.toFixed(2)}
+              </span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <span className="text-muted-foreground">Quantidade:</span>
+              <span className="ml-2 font-medium text-card-foreground">
+                {produto.quantidade}
+              </span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Custo:</span>
+              <span className="ml-2 font-medium text-card-foreground">
+                Ver compras
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
-      <div className="mb-4 pt-2 border-t border-border">
-        <div className="text-sm font-medium text-card-foreground">
-          <span className="text-muted-foreground">Custo Total: </span>
-          <span className="text-foreground">R$ {custoTotal.toFixed(2)}</span>
+      {temDadosCusto && (
+        <div className="mb-4 pt-2 border-t border-border">
+          <div className="text-sm font-medium text-card-foreground">
+            <span className="text-muted-foreground">Custo Total: </span>
+            <span className="text-foreground">R$ {custoTotal.toFixed(2)}</span>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex gap-2">
         <Link

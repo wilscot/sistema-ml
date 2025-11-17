@@ -4,20 +4,15 @@ import { sql } from 'drizzle-orm';
 export const produtos = sqliteTable('produtos', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   nome: text('nome').notNull(),
-  precoUSD: real('preco_usd').notNull(),
-  cotacao: real('cotacao').notNull(),
-  freteTotal: real('frete_total').notNull(),
+  tipo: text('tipo', { enum: ['LAB', 'PROD'] }).notNull(),
   quantidade: integer('quantidade').notNull().default(0),
-  fornecedor: text('fornecedor'),
-  tipo: text('tipo', { enum: ['LAB', 'PROD'] }).notNull().default('LAB'),
-  moeda: text('moeda', { enum: ['USD', 'BRL'] }).notNull().default('USD'),
-  deletedAt: integer('deleted_at', { mode: 'timestamp' }),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .default(sql`(unixepoch())`),
   updatedAt: integer('updated_at', { mode: 'timestamp' })
     .notNull()
     .default(sql`(unixepoch())`),
+  deletedAt: integer('deleted_at', { mode: 'timestamp' }),
 });
 
 export const cenarios = sqliteTable('cenarios', {
@@ -43,11 +38,35 @@ export const cenarios = sqliteTable('cenarios', {
     .default(sql`(unixepoch())`),
 });
 
+export const compras = sqliteTable('compras', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  produtoId: integer('produto_id')
+    .notNull()
+    .references(() => produtos.id, { onDelete: 'cascade' }),
+  
+  precoUSD: real('preco_usd').notNull(),
+  cotacao: real('cotacao').notNull(),
+  freteTotal: real('frete_total').notNull().default(0),
+  quantidadeComprada: integer('quantidade_comprada').notNull(),
+  quantidadeDisponivel: integer('quantidade_disponivel').notNull(),
+  
+  moeda: text('moeda', { enum: ['USD', 'BRL'] }).notNull().default('USD'),
+  fornecedor: text('fornecedor'),
+  observacoes: text('observacoes'),
+  
+  custoUnitario: real('custo_unitario').notNull(),
+  
+  dataCompra: integer('data_compra', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().default(sql`(unixepoch())`),
+});
+
 export const vendas = sqliteTable('vendas', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   produtoId: integer('produto_id')
     .notNull()
     .references(() => produtos.id, { onDelete: 'restrict' }),
+  compraId: integer('compra_id').references(() => compras.id),
   quantidadeVendida: integer('quantidade_vendida').notNull(),
   precoVenda: real('preco_venda').notNull(),
   tipoAnuncio: text('tipo_anuncio', { enum: ['CLASSICO', 'PREMIUM'] }).notNull(),
@@ -114,6 +133,8 @@ export type Produto = typeof produtos.$inferSelect;
 export type NovoProduto = typeof produtos.$inferInsert;
 export type Cenario = typeof cenarios.$inferSelect;
 export type NovoCenario = typeof cenarios.$inferInsert;
+export type Compra = typeof compras.$inferSelect;
+export type NovaCompra = typeof compras.$inferInsert;
 export type Venda = typeof vendas.$inferSelect;
 export type NovaVenda = typeof vendas.$inferInsert;
 export type Configuracao = typeof configuracoes.$inferSelect;

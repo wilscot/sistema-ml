@@ -45,12 +45,21 @@ export default function CenarioForm({
   const [errors, setErrors] = useState<string[]>([]);
 
   // Calcular valores em tempo real
-  const custoTotal = calcularCustoTotal(
-    produto.precoUSD,
-    produto.cotacao,
-    produto.freteTotal,
-    produto.quantidade || 1
-  );
+  const precoUSD = (produto as any).precoUSD;
+  const cotacao = (produto as any).cotacao;
+  const freteTotal = (produto as any).freteTotal;
+  const moeda = ((produto as any).moeda as 'USD' | 'BRL') || 'USD';
+  const temDadosCusto = precoUSD !== undefined && cotacao !== undefined && freteTotal !== undefined;
+  
+  const custoTotal = temDadosCusto
+    ? calcularCustoTotal(
+        precoUSD,
+        cotacao,
+        freteTotal,
+        produto.quantidade || 1,
+        moeda
+      )
+    : 0;
 
   const precoClassicoNum = parseFloat(precoVendaClassico) || 0;
   const precoPremiumNum = parseFloat(precoVendaPremium) || 0;

@@ -1,0 +1,73 @@
+# <tipo>(<escopo>): <assunto>
+
+# <corpo da mensagem>
+
+# <rodapé>
+
+# Tipos permitidos:
+#   feat:     Nova funcionalidade
+#   fix:      Correção de bug
+#   docs:     Mudanças na documentação
+#   style:    Formatação, ponto e vírgula faltando, etc (não afeta código)
+#   refactor: Refatoração de código (sem mudança de funcionalidade)
+#   perf:     Melhoria de performance
+#   test:     Adição ou correção de testes
+#   chore:    Mudanças em build, dependências, scripts
+#   db:       Mudanças no banco de dados (schema, migrations)
+#
+# Escopo (opcional):
+#   produtos, compras, vendas, cenarios, config, api, ui, db, etc.
+#
+# Assunto:
+#   - Use imperativo, presente: "adiciona" não "adicionou" ou "adicionando"
+#   - Primeira letra minúscula
+#   - Sem ponto final
+#   - Máximo 50 caracteres
+#
+# Corpo (opcional):
+#   - Explique o "o quê" e "por quê", não o "como"
+#   - Quebra de linha após 72 caracteres
+#   - Use para explicar contexto e decisões
+#
+# Rodapé (opcional):
+#   - Referências a issues: "Fixes #123"
+#   - Breaking changes: "BREAKING CHANGE: descrição"
+#
+# Exemplos:
+#
+# feat(compras): adiciona sistema FIFO para gestão de estoque
+#
+# Implementa método First-In First-Out para cálculo de custos
+# em vendas, garantindo precisão contábil e rastreabilidade.
+#
+# - Cria tabela compras com campos de custo
+# - Adiciona algoritmo FIFO na API de vendas
+# - Atualiza formulário de vendas com preview de custos
+#
+# Fixes #45
+#
+# ---
+#
+# fix(api): corrige erro de foreign key em compras
+#
+# Foreign key estava apontando para tabela de backup após
+# migração. Script de correção recria tabela com FK correta.
+#
+# Fixes #67
+#
+# ---
+#
+# docs(readme): adiciona seção de troubleshooting
+#
+# Inclui soluções para erros comuns de schema e foreign keys.
+#
+# ---
+#
+# refactor(produtos): remove campos de custo do schema
+#
+# Custos agora são gerenciados exclusivamente via tabela compras.
+# Simplifica schema e permite múltiplas compras por produto.
+#
+# BREAKING CHANGE: Campos precoUSD, cotacao, freteTotal removidos
+# de produtos. Use tabela compras para registrar custos.
+

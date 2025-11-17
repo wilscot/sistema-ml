@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
 import { getProdutoById } from '@/lib/db-client';
-import { validarProduto } from '@/lib/validators';
 import { eq } from 'drizzle-orm';
 import type { NovoProduto } from '@/db/schema';
 
@@ -75,13 +74,26 @@ export async function PATCH(
     const updates: Partial<NovoProduto> = {};
 
     // Campos que podem ser atualizados (tipo não pode ser alterado após criação)
-    if (body.nome !== undefined) updates.nome = body.nome;
-    if (body.precoUSD !== undefined) updates.precoUSD = body.precoUSD;
-    if (body.cotacao !== undefined) updates.cotacao = body.cotacao;
-    if (body.freteTotal !== undefined) updates.freteTotal = body.freteTotal;
-    if (body.quantidade !== undefined) updates.quantidade = body.quantidade;
-    if (body.fornecedor !== undefined) updates.fornecedor = body.fornecedor;
-    if (body.moeda !== undefined) updates.moeda = body.moeda as 'USD' | 'BRL';
+    if (body.nome !== undefined) {
+      if (!body.nome || body.nome.trim().length < 3) {
+        return NextResponse.json(
+          { error: 'Nome obrigatório (mínimo 3 caracteres)' },
+          { status: 400 }
+        );
+      }
+      updates.nome = body.nome.trim();
+    }
+    
+    if (body.quantidade !== undefined) {
+      if (isNaN(body.quantidade) || body.quantidade < 0) {
+        return NextResponse.json(
+          { error: 'Quantidade deve ser maior ou igual a zero' },
+          { status: 400 }
+        );
+      }
+      updates.quantidade = body.quantidade;
+    }
+    
     // tipo não pode ser editado após criação (ignorar se fornecido)
     if (body.deletedAt !== undefined) {
       // Converter Date para timestamp se necessário
@@ -91,17 +103,16 @@ export async function PATCH(
           ? null 
           : new Date(body.deletedAt);
     }
+    
+    // Nota: Campos de custo (precoUSD, cotacao, freteTotal, moeda, fornecedor)
+    // foram removidos do schema. Esses campos são ignorados se enviados.
 
-    // Se não é soft delete, validar dados
-    if (body.deletedAt === null || body.deletedAt === undefined) {
-      const produtoCompleto = { ...produtoExistente, ...updates };
-      const validation = validarProduto(produtoCompleto as NovoProduto);
-      if (!validation.valid) {
-        return NextResponse.json(
-          { errors: validation.errors },
-          { status: 400 }
-        );
-      }
+    // Verificar se há campos para atualizar
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json(
+        { error: 'Nenhum campo fornecido para atualização' },
+        { status: 400 }
+      );
     }
 
     // Atualizar updatedAt
@@ -125,8 +136,25 @@ export async function PATCH(
     return NextResponse.json({ produto: result[0] }, { status: 200 });
   } catch (error) {
     console.error('Erro ao atualizar produto:', error);
+    const errorMessage =
+      error instanceof Error ? error.message : 'Erro desconhecido';
+    
+    // Verificar se é erro de schema
+    if (errorMessage.includes('no such column') || errorMessage.includes('column') || errorMessage.includes('no such table')) {
+      return NextResponse.json(
+        { 
+          error: 'Schema do banco desatualizado. Execute: pnpm db:update',
+          details: errorMessage
+        },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: 'Erro ao atualizar produto' },
+      { 
+        error: 'Erro ao atualizar produto. Tente novamente mais tarde.',
+        details: errorMessage
+      },
       { status: 500 }
     );
   }

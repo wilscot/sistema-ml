@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
-import { getVendas, getProdutoById, getConfig } from '@/lib/db-client';
+import { getVendas, getProdutoById, getConfig, getComprasDisponiveisProduto, deduzirEstoqueCompra } from '@/lib/db-client';
 import { validarVenda } from '@/lib/validators';
 import {
   calcularCustoTotal,
@@ -122,9 +122,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validar estoque
+    // Validar quantidade
     const quantidadeVendida = body.quantidadeVendida || 0;
-    const estoqueAtual = produto.quantidade || 0;
+    const precoVenda = body.precoVenda;
+    const tipoAnuncio = body.tipoAnuncio;
+    const freteCobrado = body.freteCobrado || 0;
+    const data = body.data ? new Date(body.data) : new Date();
 
     if (quantidadeVendida <= 0) {
       return NextResponse.json(
@@ -133,11 +136,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (quantidadeVendida > estoqueAtual) {
+    // Buscar compras disponíveis (FIFO)
+    const comprasDisponiveis = getComprasDisponiveisProduto(produtoId);
+
+    if (comprasDisponiveis.length === 0) {
       return NextResponse.json(
-        {
-          error: `Estoque insuficiente. Disponível: ${estoqueAtual}, Solicitado: ${quantidadeVendida}`,
-        },
+        { error: 'Produto sem estoque disponível' },
+        { status: 400 }
+      );
+    }
+
+    const estoqueTotal = comprasDisponiveis.reduce(
+      (acc, c) => acc + c.quantidadeDisponivel,
+      0
+    );
+
+    if (estoqueTotal < quantidadeVendida) {
+      return NextResponse.json(
+        { error: `Estoque insuficiente. Disponível: ${estoqueTotal}` },
         { status: 400 }
       );
     }
@@ -145,75 +161,72 @@ export async function POST(request: NextRequest) {
     // Buscar configuração para obter taxas
     const config = await getConfig();
 
-    // Determinar taxa percentual baseado no tipo de anúncio
-    const taxaPercent =
-      body.tipoAnuncio === 'CLASSICO'
-        ? config.taxaClassico
-        : config.taxaPremium;
-
-    // Calcular custo total do produto
-    const custoTotal = calcularCustoTotal(
-      produto.precoUSD,
-      produto.cotacao,
-      produto.freteTotal,
-      produto.quantidade || 1
-    );
-
-    // Calcular taxa ML
-    const taxaML = calcularTaxaML(body.precoVenda, taxaPercent);
-
-    // Calcular lucro líquido
-    const lucroLiquido = calcularLucro(
-      body.precoVenda,
-      quantidadeVendida,
-      body.freteCobrado || 0,
-      custoTotal,
-      taxaML
-    );
-
-    // Preparar dados da venda
-    const novaVenda: NovaVenda = {
-      produtoId: body.produtoId,
-      quantidadeVendida,
-      precoVenda: body.precoVenda,
-      tipoAnuncio: body.tipoAnuncio,
-      freteCobrado: body.freteCobrado || 0,
-      taxaML,
-      lucroLiquido,
-      data: body.data ? new Date(body.data) : new Date(),
-      createdAt: new Date(),
-    };
-
-    // Validar dados completos
-    const validation = validarVenda(novaVenda, estoqueAtual);
-    if (!validation.valid) {
-      return NextResponse.json(
-        { errors: validation.errors },
-        { status: 400 }
-      );
-    }
-
-    // TRANSACTION: Inserir venda + Atualizar estoque
-    // better-sqlite3 é síncrono, então usamos transaction do Drizzle
-    // O Drizzle para better-sqlite3 usa transações síncronas através do método transaction()
+    // TRANSACTION: Deduzir estoque FIFO + Inserir venda + Atualizar estoque total
     const result = db.transaction(() => {
-      // Inserir venda
-      const vendaInserida = db
+      // Deduzir usando FIFO
+      let quantidadeRestante = quantidadeVendida;
+      let compraUsada: typeof comprasDisponiveis[0] | null = null;
+      let custoTotalVenda = 0;
+
+      for (const compra of comprasDisponiveis) {
+        if (quantidadeRestante === 0) break;
+
+        const quantidadeDeduzir = Math.min(
+          quantidadeRestante,
+          compra.quantidadeDisponivel
+        );
+
+        deduzirEstoqueCompra(compra.id, quantidadeDeduzir);
+
+        custoTotalVenda += compra.custoUnitario * quantidadeDeduzir;
+
+        quantidadeRestante -= quantidadeDeduzir;
+
+        // Vincular à primeira compra usada
+        if (!compraUsada && quantidadeDeduzir > 0) {
+          compraUsada = compra;
+        }
+      }
+
+      // Validar que uma compra foi usada
+      if (!compraUsada) {
+        throw new Error('Erro ao processar compras para venda');
+      }
+
+      // Calcular taxa e lucro
+      const taxaPercent = tipoAnuncio === 'CLASSICO' ? config.taxaClassico : config.taxaPremium;
+      const taxaML = calcularTaxaML(precoVenda, taxaPercent);
+
+      const receitaTotal = precoVenda * quantidadeVendida + freteCobrado;
+      const lucroLiquido = receitaTotal - custoTotalVenda - taxaML;
+
+      // Criar venda com compraId (vinculada à primeira compra usada)
+      const novaVenda = db
         .insert(vendas)
-        .values(novaVenda)
+        .values({
+          produtoId,
+          compraId: compraUsada.id,
+          quantidadeVendida,
+          precoVenda,
+          tipoAnuncio,
+          freteCobrado,
+          taxaML,
+          lucroLiquido,
+          data,
+        })
         .returning()
         .all();
 
-      // Atualizar estoque (deduzir quantidade vendida)
+      // Atualizar estoque total do produto
       db.update(produtos)
         .set({
           quantidade: sql`${produtos.quantidade} - ${quantidadeVendida}`,
           updatedAt: new Date(),
         })
-        .where(eq(produtos.id, body.produtoId))
+        .where(eq(produtos.id, produtoId))
         .run();
 
-      return vendaInserida;
+      return novaVenda;
     });
 
     if (result.length === 0) {
