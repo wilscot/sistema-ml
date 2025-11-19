@@ -26,6 +26,8 @@ export default function ProdutosPage() {
     isOpen: boolean;
     produtoId: number | null;
   }>({ isOpen: false, produtoId: null });
+  const [migrating, setMigrating] = useState(false);
+  const [produtosJaMigrados, setProdutosJaMigrados] = useState<Set<number>>(new Set());
   const [toast, setToast] = useState<{
     message: string;
     type: 'success' | 'error' | 'info';
@@ -44,6 +46,20 @@ export default function ProdutosPage() {
 
       const data = await response.json();
       setProdutos(data.produtos || []);
+
+      // Se estiver na aba LAB, verificar quais produtos já foram migrados
+      if (tipo === 'LAB') {
+        const produtosPROD = await fetch('/api/produtos?tipo=PROD').then(r => r.json()).then(d => d.produtos || []).catch(() => []);
+        const nomesPROD = new Set(produtosPROD.map((p: Produto) => p.nome));
+        const jaMigrados = new Set(
+          data.produtos
+            .filter((p: Produto) => nomesPROD.has(p.nome))
+            .map((p: Produto) => p.id)
+        );
+        setProdutosJaMigrados(jaMigrados);
+      } else {
+        setProdutosJaMigrados(new Set());
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
       setProdutos([]);
@@ -97,9 +113,10 @@ export default function ProdutosPage() {
   };
 
   const confirmMigrate = async () => {
-    if (!migrateDialog.produtoId) return;
+    if (!migrateDialog.produtoId || migrating) return;
 
     try {
+      setMigrating(true);
       const response = await fetch('/api/produtos/migrate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -108,6 +125,10 @@ export default function ProdutosPage() {
 
       if (!response.ok) {
         const data = await response.json();
+        if (response.status === 409) {
+          const produtoId = data.produtoId;
+          throw new Error(`Produto já existe em PROD (ID: ${produtoId})`);
+        }
         throw new Error(data.error || 'Erro ao migrar produto');
       }
 
@@ -119,6 +140,8 @@ export default function ProdutosPage() {
         err instanceof Error ? err.message : 'Erro ao migrar produto',
         'error'
       );
+    } finally {
+      setMigrating(false);
     }
   };
 
@@ -170,18 +193,22 @@ export default function ProdutosPage() {
 
       {!loading && !error && produtos.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {produtos.map((produto) => (
-            <ProdutoCard
-              key={produto.id}
-              produto={produto}
-              onDelete={() => handleDelete(produto.id)}
-              onMigrate={
-                produto.tipo === 'LAB'
-                  ? () => handleMigrate(produto.id)
-                  : undefined
-              }
-            />
-          ))}
+          {produtos.map((produto) => {
+            const jaMigrado = produtosJaMigrados.has(produto.id);
+            return (
+              <ProdutoCard
+                key={produto.id}
+                produto={produto}
+                onDelete={() => handleDelete(produto.id)}
+                onMigrate={
+                  produto.tipo === 'LAB' && !jaMigrado
+                    ? () => handleMigrate(produto.id)
+                    : undefined
+                }
+                jaMigrado={jaMigrado}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -199,8 +226,9 @@ export default function ProdutosPage() {
         onCancel={() => setMigrateDialog({ isOpen: false, produtoId: null })}
         title="Migrar produto para PROD?"
         description="Uma cópia do produto será criada em PROD. O produto original permanecerá em LAB."
-        confirmText="Migrar"
+        confirmText={migrating ? "Migrando..." : "Migrar"}
         confirmVariant="primary"
+        disabled={migrating}
       />
 
       <Toast

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, schema } from '@/db';
 import { getProdutoById } from '@/lib/db-client';
 import type { NovoProduto } from '@/db/schema';
+import { eq, and, isNull } from 'drizzle-orm';
 
 const { produtos } = schema;
 
@@ -51,6 +52,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Produto com nome inválido não pode ser migrado' },
         { status: 400 }
+      );
+    }
+
+    // Verificar se já existe produto PROD com o mesmo nome (não deletado)
+    const produtoExistente = db
+      .select()
+      .from(produtos)
+      .where(
+        and(
+          eq(produtos.nome, produtoOriginal.nome),
+          eq(produtos.tipo, 'PROD'),
+          isNull(produtos.deletedAt)
+        )
+      )
+      .limit(1)
+      .all();
+
+    if (produtoExistente.length > 0) {
+      return NextResponse.json(
+        { 
+          error: 'Produto já existe em PROD',
+          produtoId: produtoExistente[0].id
+        },
+        { status: 409 }
       );
     }
 

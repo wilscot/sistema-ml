@@ -8,6 +8,7 @@ interface DeleteConfirmDialogProps {
   description: string;
   confirmText?: string;
   confirmVariant?: 'destructive' | 'primary';
+  disabled?: boolean;
 }
 
 export default function DeleteConfirmDialog({
@@ -18,6 +19,7 @@ export default function DeleteConfirmDialog({
   description,
   confirmText = 'Deletar',
   confirmVariant = 'destructive',
+  disabled = false,
 }: DeleteConfirmDialogProps) {
   if (!isOpen) return null;
 
@@ -54,7 +56,12 @@ export default function DeleteConfirmDialog({
           </button>
           <button
             onClick={onConfirm}
+            disabled={disabled}
             className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              disabled
+                ? 'opacity-50 cursor-not-allowed'
+                : ''
+            } ${
               confirmVariant === 'destructive'
                 ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
                 : 'bg-primary text-primary-foreground hover:bg-primary/90'

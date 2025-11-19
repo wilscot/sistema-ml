@@ -9,6 +9,7 @@ interface ProdutoCardProps {
   onEdit?: () => void;
   onDelete?: () => void;
   onMigrate?: () => void;
+  jaMigrado?: boolean;
 }
 
 export default function ProdutoCard({
@@ -16,6 +17,7 @@ export default function ProdutoCard({
   onEdit,
   onDelete,
   onMigrate,
+  jaMigrado = false,
 }: ProdutoCardProps) {
   const isLAB = produto.tipo === 'LAB';
   const moeda = ((produto as any).moeda as 'USD' | 'BRL') || 'USD';
@@ -43,6 +45,9 @@ export default function ProdutoCard({
             <h3 className="text-lg font-semibold text-card-foreground">
               {produto.nome}
             </h3>
+            <span className="text-xs text-muted-foreground font-mono">
+              ID: {produto.id}
+            </span>
             <span
               className={`px-2 py-1 text-xs font-medium rounded ${
                 moeda === 'USD'
@@ -142,13 +147,23 @@ export default function ProdutoCard({
             Deletar
           </button>
         )}
-        {isLAB && onMigrate && (
-          <button
-            onClick={onMigrate}
-            className="px-3 py-2 text-sm font-medium border border-primary text-primary rounded-md hover:bg-primary hover:text-primary-foreground transition-colors"
-          >
-            Migrar para PROD
-          </button>
+        {isLAB && (
+          jaMigrado ? (
+            <button
+              disabled
+              className="px-3 py-2 text-sm font-medium border border-muted text-muted-foreground rounded-md cursor-not-allowed opacity-50"
+              title="Produto já existe em PROD"
+            >
+              Já em PROD
+            </button>
+          ) : onMigrate ? (
+            <button
+              onClick={onMigrate}
+              className="px-3 py-2 text-sm font-medium border border-primary text-primary rounded-md hover:bg-primary hover:text-primary-foreground transition-colors"
+            >
+              Migrar para PROD
+            </button>
+          ) : null
         )}
       </div>
     </div>
