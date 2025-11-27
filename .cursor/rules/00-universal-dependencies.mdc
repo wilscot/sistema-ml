@@ -1,0 +1,102 @@
+---
+alwaysApply: true
+description: Control external dependencies - ask for large/complex packages
+---
+
+# Dependency Management
+
+## AUTO-APPROVED (install without asking):
+
+### Small Utilities (<50kb):
+- clsx, classnames - className utilities
+- nanoid, uuid - ID generation
+- date-fns - date utilities (use instead of moment.js)
+- zod - schema validation
+- lodash.[method] - specific lodash methods (e.g., lodash.debounce)
+
+### Type Definitions:
+- @types/* - any TypeScript definitions
+
+### Dev Tools:
+- prettier - code formatting
+- eslint, @typescript-eslint/* - linting
+- Testing libraries: vitest, @testing-library/*
+
+## MUST ASK BEFORE INSTALLING:
+
+### Large Libraries (>500kb):
+- UI frameworks: Material-UI, Ant Design, Chakra UI
+- Complete lodash (use specific methods instead)
+- moment.js (suggest date-fns instead)
+
+### State Management:
+- Redux, Redux Toolkit
+- Zustand, Jotai, Recoil
+- MobX
+
+### Backend Frameworks:
+- Express alternatives (Fastify, Koa)
+- ORMs (Prisma, TypeORM, Sequelize)
+
+### Any Package That:
+- Has 20+ dependencies
+- Is outside project scope
+- Has multiple alternatives available
+
+## Approval Request Format:
+
+I want to install [package-name] for [reason].
+
+Details:
+- Purpose: [what it does]
+- Size: ~[X]kb (adds [N] dependencies)
+- Alternative: [lighter option if available]
+
+Example:
+Instead of moment.js (232kb), consider:
+- date-fns (78kb)
+- Native Intl.DateTimeFormat (0kb)
+
+Proceed with [package-name]?
+
+## Examples:
+
+Good (auto-install):
+// User wants to generate unique IDs
+import { nanoid } from 'nanoid'  // 2kb, auto-approved
+
+Must Ask:
+// User wants date formatting
+// DON'T auto-install moment.js (232kb)
+
+Ask: "For date formatting, I can use:
+A) date-fns (~78kb, modern)
+B) Native Intl API (0kb, limited features)
+C) moment.js (232kb, legacy but full-featured)
+
+Prefer?"
+
+Suggest Better Alternative:
+// User wants UI components
+
+Ask: "For UI components, options:
+A) shadcn/ui (copy-paste components, 0 dependencies)
+B) Radix UI headless (small, flexible)
+C) Material-UI (~1.2MB, 40+ dependencies)
+
+For this project, I recommend A or B.
+Prefer?"
+
+## Benefits:
+
+- Smaller bundle size - faster app loading
+- Fewer bugs - less third-party code
+- Lower maintenance - fewer dependencies to update
+- Better security - smaller attack surface
+- Cost savings - less build time, smaller deploys
+
+VALIDATION after creating:
+Run: cat .cursor/rules/00-universal-dependencies.mdc | wc -l
+Expected: ~100 lines
+
+Reply: "dependencies.mdc created ✓"

@@ -1,0 +1,75 @@
+---
+alwaysApply: true
+---
+# Git Push Automático
+
+## Regra Principal
+
+**SEMPRE fazer push para o repositório remoto após qualquer commit.**
+
+## Workflow Obrigatório
+
+Após fazer commit de alterações:
+
+1. **Verificar status do repositório remoto**
+   ```bash
+   git fetch origin
+   ```
+
+2. **Fazer push imediatamente**
+   ```bash
+   git push origin <branch-name>
+   ```
+   
+   Se o branch não tem upstream configurado:
+   ```bash
+   git push -u origin <branch-name>
+   ```
+
+3. **Verificar sucesso**
+   - Confirmar que o push foi bem-sucedido
+   - Se houver conflitos, informar o usuário
+
+## Quando Aplicar
+
+- ✅ Após criar commit com `git commit`
+- ✅ Após fazer alterações e commit solicitado pelo usuário
+- ✅ Após qualquer operação que crie commits locais
+- ✅ Quando usuário pedir para "atualizar no git online"
+
+## Exceções
+
+- ❌ NÃO fazer push se o usuário explicitamente pedir para não fazer
+- ❌ NÃO fazer push se houver conflitos não resolvidos
+- ❌ NÃO fazer push se o branch estiver em estado inconsistente
+
+## Comandos Padrão
+
+### Branch main/master
+```bash
+git push -u origin main
+# ou
+git push -u origin master
+```
+
+### Branch de feature
+```bash
+git push -u origin feat/nome-da-feature
+```
+
+### Verificar antes de push
+```bash
+git status
+git log --oneline origin/<branch>..HEAD
+```
+
+## Mensagem de Confirmação
+
+Após push bem-sucedido, sempre informar:
+- Quantos commits foram enviados
+- Para qual branch remoto
+- Status do rastreamento (se configurado)
+
+---
+
+**Objetivo**: Manter o repositório remoto sempre sincronizado com o local.

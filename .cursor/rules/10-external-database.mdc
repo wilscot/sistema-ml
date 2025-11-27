@@ -1,0 +1,149 @@
+---
+alwaysApply: true
+description: Handle external/unknown databases - discovery and documentation
+---
+
+# External Database Management
+
+Use this rule when: Connecting to existing database where schema is unknown
+
+## Core Principle:
+
+Each conversation does NOT remember previous queries.
+Documentation prevents re-discovery in every chat.
+
+## WORKFLOW:
+
+### Step 1: Check for existing documentation
+
+IF docs/database-schema.md exists:
+  → Read it and use documented structure
+  → NEVER query information_schema
+  
+ELSE:
+  → Proceed to Step 2
+
+### Step 2: Ask user for schema
+
+Database schema is unknown. I can:
+
+A) You provide schema documentation
+B) You provide example of data structure
+C) I execute ONE discovery query to capture schema
+
+Which option?
+
+### Step 3A: If user provides documentation
+User shares schema → Save to docs/database-schema.md
+
+### Step 3B: If user provides data example
+User shares JSON/data → Infer structure → Save to docs/database-schema.md
+Ask for confirmation: "Is this structure correct?"
+
+### Step 3C: If discovery query needed
+
+For SQL databases:
+Ask permission first with this message:
+"I will execute this single discovery query:
+
+SELECT 
+  table_name, 
+  column_name, 
+  data_type,
+  character_maximum_length,
+  is_nullable,
+  column_default
+FROM information_schema.columns
+WHERE table_schema = 'public'
+ORDER BY table_name, ordinal_position;
+
+This captures complete schema in one query.
+Execute?"
+
+After approval, run query and save results to docs/database-schema.md
+
+For MongoDB:
+Ask permission first:
+"I will query one document from each collection to infer schema.
+Execute?"
+
+For APIs (REST/GraphQL):
+"I will make a test request to understand response structure:
+GET [endpoint]
+
+Execute?"
+
+After approval, save response format to docs/api-schema.md
+
+### Step 4: Create documentation
+
+Save to docs/database-schema.md in this format:
+
+# Database Schema
+
+Last updated: [date]
+Source: [database name/connection]
+
+## Table: users
+
+Columns:
+- id: integer (PRIMARY KEY, AUTO_INCREMENT)
+- email: varchar(255) (UNIQUE, NOT NULL)
+- name: varchar(100)
+- created_at: timestamp (DEFAULT CURRENT_TIMESTAMP)
+
+Relationships:
+- Has many: posts (users.id → posts.user_id)
+
+Indexes:
+- PRIMARY KEY (id)
+- UNIQUE INDEX (email)
+
+## Common Queries
+
+Get user with posts:
+SELECT u.*, p.title
+FROM users u
+LEFT JOIN posts p ON u.id = p.user_id
+WHERE u.id = ?
+
+### Step 5: Use documentation for all future queries
+
+ALWAYS before writing any query:
+1. Read @docs/database-schema.md
+2. Verify table/column names
+3. Check data types
+4. Review relationships
+5. Write query using documented structure
+
+NEVER:
+- Query information_schema again
+- Run DESCRIBE or SHOW COLUMNS
+- Use trial-and-error to find columns
+- Assume structure from table names
+
+### Step 6: Handle schema changes
+
+IF user reports "column doesn't exist":
+  → Ask: "Has schema changed? Should I re-run discovery?"
+  → If yes: repeat Step 3C
+  → Update docs/database-schema.md
+
+IF new table added:
+  → Ask: "Should I discover structure of new table [name]?"
+  → Run targeted discovery for that table only
+  → Append to docs/database-schema.md
+
+## Benefits:
+
+- Zero token waste - No repeated discovery across chats
+- Consistency - All queries use same documented structure
+- Debugging - Easy to verify query correctness
+- Onboarding - New developers read one document
+- Version control - Schema docs tracked in git
+
+VALIDATION after creating:
+Run: cat .cursor/rules/10-external-database.mdc | wc -l
+Expected: ~120 lines
+
+Reply: "external-database.mdc created ✓"

@@ -1,0 +1,163 @@
+---
+alwaysApply: true
+description: Maintain small focused files - soft limit 300 lines with modularization patterns
+---
+
+# File Size Management
+
+## Rules:
+- Soft limit: 300 lines per file
+- Ideal: 200 lines per file
+- Principle: One responsibility per file (Single Responsibility Principle)
+
+## When Approaching Limit:
+
+### Scenario A: Close to limit, need few lines
+Condition: 290-310 lines + need <20 lines to complete logic
+Action: Continue without asking
+
+### Scenario B: At limit, need substantial addition
+Condition: 320+ lines OR need 50+ additional lines
+Action: STOP and propose refactoring
+
+Message format:
+File [name] has [N] lines. Need to add [M] lines for [reason].
+
+Options:
+A) Continue (total: [N+M] lines - exceeds limit)
+B) Refactor into smaller modules (recommended)
+
+Propose refactoring:
+[show structure pattern below]
+
+Approve?
+
+## REFACTORING PATTERNS:
+
+### Pattern 1: HTML + Vanilla JS
+Use when: Plain HTML/JS project grows large
+
+Before:
+index.html (600 lines - everything mixed)
+
+After:
+project/
+├── index.html               (50-80 lines - structure only)
+│   Purpose: Define structure, load resources
+│   Contains: Basic HTML skeleton, script/style imports
+│
+├── styles/
+│   ├── main.css            (layout and typography)
+│   └── components.css      (component-specific styles)
+│
+└── js/
+    ├── components/
+    │   ├── header.js       (header logic)
+    │   ├── sidebar.js      (sidebar logic)
+    │   └── footer.js       (footer logic)
+    ├── utils/
+    │   └── api.js          (API calls)
+    └── main.js             (initialization and orchestration)
+
+index.html should ONLY:
+- Define basic structure
+- Load CSS/JS files
+- NO inline styles (use external CSS)
+- NO inline scripts (use external JS)
+
+### Pattern 2: React/Next.js Components
+Use when: Component file exceeds 300 lines
+
+Before:
+Dashboard.tsx (450 lines - one big component)
+
+After:
+components/Dashboard/
+├── index.tsx               (50 lines - composition)
+│   Purpose: Import and compose sub-components
+│
+├── DashboardHeader.tsx     (80 lines)
+│   Purpose: Header with title and actions
+│
+├── StatCard.tsx            (60 lines)
+│   Purpose: Reusable stat display card
+│
+├── ChartSection.tsx        (120 lines)
+│   Purpose: Data visualization
+│
+├── types.ts                (40 lines)
+│   Purpose: TypeScript interfaces for Dashboard
+│
+└── hooks/
+    └── useStats.ts         (80 lines)
+        Purpose: Data fetching and state
+
+Composition pattern (index.tsx):
+import DashboardHeader from './DashboardHeader'
+import StatCard from './StatCard'
+import ChartSection from './ChartSection'
+
+export default function Dashboard() {
+  return (
+    <>
+      <DashboardHeader />
+      <div className="stats">
+        <StatCard title="Users" value={100} />
+        <StatCard title="Sales" value={250} />
+      </div>
+      <ChartSection />
+    </>
+  )
+}
+
+### Pattern 3: Backend/API Routes
+Use when: API file has multiple endpoints
+
+Before:
+api/users.ts (500 lines - all user operations)
+
+After:
+api/users/
+├── index.ts                (50 lines - route definitions)
+├── controllers/
+│   ├── createUser.ts       (100 lines)
+│   ├── updateUser.ts       (80 lines)
+│   ├── deleteUser.ts       (60 lines)
+│   └── getUsers.ts         (120 lines)
+├── validators/
+│   └── userSchema.ts       (80 lines)
+└── types.ts                (40 lines)
+
+### Pattern 4: Utility Files
+Use when: Utils/helpers file grows too large
+
+Before:
+utils.ts (400 lines - mixed utilities)
+
+After:
+utils/
+├── string.ts               (80 lines - string helpers)
+├── date.ts                 (90 lines - date formatting)
+├── validation.ts           (100 lines - validators)
+└── api.ts                  (130 lines - API helpers)
+
+## Benefits of Modularization:
+
+- Easier to debug: Find issues faster in focused files
+- Better for AI: Smaller context = better understanding
+- Fits in Claude Web: Can paste entire file for debugging
+- Reusability: Small modules are easier to reuse
+- Team collaboration: Less merge conflicts
+- Testability: Easier to write unit tests
+
+## When NOT to Split:
+
+- Configuration files (tsconfig.json, tailwind.config.ts)
+- Small utility files already under 200 lines
+- Files where splitting would create circular dependencies
+
+VALIDATION after creating:
+Run: cat .cursor/rules/00-universal-file-size.mdc | wc -l
+Expected: ~150 lines
+
+Reply: "file-size.mdc created ✓"

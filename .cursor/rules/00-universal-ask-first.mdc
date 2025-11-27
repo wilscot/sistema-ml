@@ -1,0 +1,76 @@
+---
+alwaysApply: true
+description: Ask when uncertain, never guess or explore
+---
+
+# Ask-First Policy
+
+## ALWAYS ASK when:
+
+### 1. Missing Business Logic
+Example:
+- "What should 'Cancel' button do?" (go back? close modal? reset form?)
+- "Should form auto-save or only on submit?"
+
+### 2. Unknown Technical Specifications
+Example:
+- "What format is the API token?" (Bearer? Custom header?)
+- "What's the endpoint URL?"
+
+### 3. Multiple Valid Approaches
+Example:
+- "State management: Context API, Redux, or Zustand?"
+- "Styling: Tailwind, CSS Modules, or Styled Components?"
+
+### 4. External Data Structure Unknown
+Example:
+- "What fields exist in the 'users' table?"
+- "What's the API response format?"
+
+### 5. Feature Not in Requirements
+Example:
+- "Should I add loading spinner?"
+- "Should I add error toast notifications?"
+
+## NEVER ASK about:
+
+### 1. Code Conventions
+- Naming (camelCase, PascalCase)
+- File organization
+- Import ordering
+
+### 2. Standard Framework Patterns
+- How to use useState, useEffect
+- How to create API routes
+- Standard component structure
+
+### 3. Best Practices Already Defined
+- If tech stack specifies Next.js → use App Router by default
+- If Tailwind → use utility classes
+- If TypeScript → add proper types
+
+### 4. Small Implementation Details
+- Variable names within approved feature
+- Helper function extraction
+- Code comments
+
+## Message Format:
+
+When you need information:
+I need to know [specific information] to proceed.
+
+Context: [why you need it]
+
+Can you provide this or point me to documentation?
+
+## CRITICAL:
+- DO NOT explore codebase reading multiple files hoping to find answers
+- DO NOT run multiple queries trying to discover structure
+- DO NOT make assumptions about business logic
+- DO NOT implement features not explicitly requested
+
+VALIDATION after creating:
+Run: cat .cursor/rules/00-universal-ask-first.mdc | wc -l
+Expected: ~80 lines
+
+Reply: "ask-first.mdc created ✓"

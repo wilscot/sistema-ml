@@ -1,0 +1,314 @@
+---
+alwaysApply: true
+description: Enforce clean code standards - no emojis, no placeholder comments, meaningful names
+---
+
+# Code Standards
+
+## Core Principle
+
+Code should be **clean, compilable, and self-explanatory**. Never leave placeholders or decorative elements that break compilation or create technical debt.
+
+## Rule 1: NO EMOJIS IN CODE FILES
+
+### ❌ NEVER use emojis in:
+- Variable/function/class names
+- Code comments
+- String literals (except UI-facing text explicitly for users)
+- File names
+- Commit messages (opcional - use com moderação)
+
+### ✅ ALLOWED emojis in:
+- README.md, documentation files
+- UI strings shown to end users: `<Button>Salvar ✓</Button>`
+- Commit messages (if team uses conventional commits with emojis)
+
+### Why this rule exists:
+- **Encoding errors:** UTF-8 emojis break in some CI/CD environments
+- **Compilation issues:** Some compilers/transpilers choke on non-ASCII
+- **Professionalism:** Production code should be universal and portable
+- **Accessibility:** Screen readers struggle with emojis
+
+### Examples:
+
+❌ **BAD:**
+```typescript
+// ✅ Validação OK
+const isValid = true;
+
+// 🚀 Performance otimizada
+function fastCompute() {...}
+
+const user = {
+  name: "João",
+  status: "✓ Active" // emoji in data
+};
+```
+
+✅ **GOOD:**
+```typescript
+// Validation passed - email format correct
+const isValid = true;
+
+// Optimized using memoization to reduce recalculations
+function fastCompute() {...}
+
+const user = {
+  name: "João",
+  status: "Active" // clean data
+};
+```
+
+---
+
+## Rule 2: NO PLACEHOLDER COMMENTS
+
+### ❌ NEVER write these comments:
+
+```typescript
+// TODO: decide later
+// FIXME: not sure how to handle this
+// ??? what should this do?
+// HACK: temporary solution
+// NOTE TO SELF: ask user
+// @ts-ignore // without explanation
+```
+
+### ✅ INSTEAD: Stop and ask in the chat
+
+When you're uncertain about:
+- Business logic decisions
+- How to handle edge cases  
+- What value to use as default
+- Whether to implement feature X
+
+**STOP coding and ASK:**
+
+```
+❓ Dúvida sobre implementação:
+
+Contexto: Estou implementando [feature X]
+
+Opções:
+A) [abordagem 1 - pros/contras]
+B) [abordagem 2 - pros/contras]
+
+Qual prefere? Ou tem outra sugestão?
+```
+
+### Exception: Technical TODOs (rare)
+
+✅ **ALLOWED only if:**
+- Explicit technical debt acknowledged by user
+- Has ticket number/issue reference
+- Has deadline or condition
+
+```typescript
+// TODO(PROJ-123): Refactor to use React Query after cache layer is ready
+// Deadline: Sprint 3, blocked by backend API v2
+function fetchData() {...}
+```
+
+---
+
+## Rule 3: COMMENTS SHOULD BE EXPLANATORY
+
+### ✅ Good comments explain WHY, not WHAT
+
+❌ **BAD (describes WHAT):**
+```typescript
+// Loop through users
+for (const user of users) {
+  // Check if user is active
+  if (user.status === 'active') {
+    // Send email
+    sendEmail(user.email);
+  }
+}
+```
+
+✅ **GOOD (explains WHY):**
+```typescript
+// Only notify active users to avoid bounced emails from deactivated accounts
+for (const user of users) {
+  if (user.status === 'active') {
+    sendEmail(user.email);
+  }
+}
+```
+
+### When to comment:
+
+**DO comment:**
+- Non-obvious business rules
+- Performance optimizations
+- Security considerations
+- Bug workarounds (with issue reference)
+- Complex algorithms
+
+**DON'T comment:**
+- Obvious code
+- Self-explanatory function calls
+- Standard patterns
+
+---
+
+## Rule 4: CODE THAT SPEAKS FOR ITSELF
+
+### Prefer meaningful names over comments
+
+❌ **BAD:**
+```typescript
+// User data
+const u = { n: "João", a: 25 };
+
+// Calculate total
+const t = p * q - d;
+```
+
+✅ **GOOD:**
+```typescript
+const user = { 
+  name: "João", 
+  age: 25 
+};
+
+const totalPrice = unitPrice * quantity - discount;
+```
+
+### Extract complex conditions into named functions
+
+❌ **BAD:**
+```typescript
+if (user.age >= 18 && user.country === 'BR' && !user.restricted) {
+  // allow purchase
+}
+```
+
+✅ **GOOD:**
+```typescript
+const canPurchaseInBrazil = (user: User) => 
+  user.age >= 18 && 
+  user.country === 'BR' && 
+  !user.restricted;
+
+if (canPurchaseInBrazil(user)) {
+  // allow purchase
+}
+```
+
+---
+
+## Rule 5: @ts-ignore and @ts-expect-error
+
+### ❌ NEVER use without explanation
+
+```typescript
+// @ts-ignore
+const result = dangerousFunction();
+```
+
+### ✅ ALWAYS explain why
+
+```typescript
+// @ts-expect-error - Library types are wrong, fixed in v3.0
+// See: https://github.com/library/issues/123
+const result = dangerousFunction();
+```
+
+### Better: Fix the type instead
+
+```typescript
+const result = dangerousFunction() as ExpectedType;
+// or
+const result: ExpectedType = dangerousFunction();
+```
+
+---
+
+## Integration with Other Rules
+
+- **00-universal-workflow.mdc:** Clean code is part of EXECUTE phase
+- **00-universal-ask-first.mdc:** When uncertain, ASK instead of TODO
+- **00-universal-file-size.mdc:** Clean code reduces file size naturally
+
+---
+
+## Enforcement Checklist
+
+Before submitting code, verify:
+
+- [ ] No emojis in code files (except UI strings)
+- [ ] No placeholder comments (TODO/FIXME without context)
+- [ ] Comments explain WHY, not WHAT
+- [ ] Variable/function names are self-explanatory
+- [ ] No @ts-ignore without detailed explanation
+
+---
+
+## Examples by Scenario
+
+### Scenario 1: Uncertain about validation ✅
+
+❌ **DON'T:**
+```typescript
+function validateEmail(email: string) {
+  // TODO: decide if we accept + in emails
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+```
+
+✅ **DO:**
+Stop coding and ask:
+```
+❓ Validação de email:
+
+Devo aceitar '+' no endereço? (ex: user+tag@domain.com)
+
+A) Sim, aceitar '+'
+B) Não, bloquear '+'
+
+Escolha A/B ou outra regra específica.
+```
+
+### Scenario 2: Complex business rule ✅
+
+✅ **GOOD:**
+```typescript
+// Brazilian tax law requires 18% ICMS on interstate sales
+// Reference: Lei Complementar 87/1996, Art. 155
+const INTERSTATE_TAX_RATE = 0.18;
+
+function calculateTax(price: number, fromState: string, toState: string) {
+  if (fromState !== toState) {
+    return price * INTERSTATE_TAX_RATE;
+  }
+  return 0;
+}
+```
+
+### Scenario 3: Temporary workaround ✅
+
+✅ **GOOD:**
+```typescript
+// Workaround for Safari bug with flexbox gap
+// Bug: https://bugs.webkit.org/show_bug.cgi?id=123456
+// Remove after Safari 18+ adoption > 95%
+const gapWorkaround = {
+  '& > * + *': {
+    marginLeft: '1rem'
+  }
+};
+```
+
+---
+
+## Remember
+
+**If you're thinking of writing TODO/FIXME → STOP and ASK in the chat**
+
+**If you want to add emoji → DON'T, write clear text instead**
+
+**If comment describes WHAT code does → DELETE, make code self-explanatory**
+
+Clean code is maintainable code.
