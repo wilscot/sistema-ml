@@ -129,11 +129,7 @@ export default function SimulacaoLabPage() {
       </div>
 
       {produtoSelecionado ? (
-        loadingCenarios ? (
-          <div className="text-center py-8">Carregando cenários...</div>
-        ) : (
-          <CenarioList cenarios={cenarios} onDelete={handleDelete} />
-        )
+        <CenarioList cenarios={cenarios} onDelete={handleDelete} loading={loadingCenarios} />
       ) : (
         <div className="text-center py-10 text-muted-foreground">
           <p>Selecione um produto para visualizar ou criar cenários de simulação.</p>

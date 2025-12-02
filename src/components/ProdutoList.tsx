@@ -23,14 +23,18 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { calcularCustoUnitario } from '@/lib/calculators';
+import { Badge } from '@/components/ui/badge';
 import type { ProdutoLab, ProdutoProd } from '@/types/produto';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, Upload } from 'lucide-react';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import EmptyState from '@/components/EmptyState';
 
 interface ProdutoListProps {
   modo: 'LAB' | 'PROD';
   produtos: (ProdutoLab | ProdutoProd)[];
   onEdit: (produto: ProdutoLab | ProdutoProd) => void;
   onDelete: (id: number) => void;
+  loading?: boolean;
 }
 
 export function ProdutoList({
@@ -38,9 +42,11 @@ export function ProdutoList({
   produtos,
   onEdit,
   onDelete,
+  loading = false,
 }: ProdutoListProps) {
   const { toast } = useToast();
   const [deletandoId, setDeletandoId] = useState<number | null>(null);
+  const [exportandoId, setExportandoId] = useState<number | null>(null);
 
   const handleDelete = async (id: number) => {
     try {
@@ -71,12 +77,45 @@ export function ProdutoList({
     }
   };
 
+  const handleExportar = async (produtoLab: ProdutoLab) => {
+    try {
+      setExportandoId(produtoLab.id);
+      const response = await fetch('/api/produtos/migrar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ produtoLabId: produtoLab.id }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao exportar produto');
+      }
+
+      toast({
+        title: 'Sucesso',
+        description: 'Produto exportado para PROD!',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message || 'Erro ao exportar produto',
+        variant: 'destructive',
+      });
+    } finally {
+      setExportandoId(null);
+    }
+  };
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
   if (produtos.length === 0) {
     return (
-      <div className="text-center py-12 text-muted-foreground">
-        <p className="text-lg">Nenhum produto cadastrado.</p>
-        <p className="text-sm">Clique em + para adicionar.</p>
-      </div>
+      <EmptyState
+        titulo="Nenhum produto cadastrado"
+        descricao="Clique em + para adicionar um novo produto."
+      />
     );
   }
 
@@ -94,8 +133,8 @@ export function ProdutoList({
                 <TableHead>Custo Unitário</TableHead>
               </>
             )}
-            {modo === 'PROD' && <TableHead>Quantidade</TableHead>}
             <TableHead>Fornecedor</TableHead>
+            {modo === 'PROD' && <TableHead>Estoque</TableHead>}
             <TableHead className="text-right">Ações</TableHead>
           </TableRow>
         </TableHeader>
@@ -130,12 +169,49 @@ export function ProdutoList({
                     </TableCell>
                   </>
                 )}
-                {modo === 'PROD' && (
-                  <TableCell>{(produto as ProdutoProd).quantidade}</TableCell>
-                )}
                 <TableCell>{produto.fornecedor || '-'}</TableCell>
+                {modo === 'PROD' && (
+                  <TableCell>
+                    {(produto as ProdutoProd).quantidade === 0 ? (
+                      <Badge variant="destructive">Sem estoque</Badge>
+                    ) : (
+                      (produto as ProdutoProd).quantidade
+                    )}
+                  </TableCell>
+                )}
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
+                    {modo === 'LAB' && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={exportandoId === produto.id}
+                            title="Exportar para PROD"
+                          >
+                            <Upload className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Exportar para PROD</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Exportar "{produto.nome}" para PROD? O produto original
+                              permanecerá em LAB.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleExportar(produto as ProdutoLab)}
+                            >
+                              Exportar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"

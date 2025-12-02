@@ -31,37 +31,19 @@ export async function GET(
       );
     }
 
-    await getDb();
+    getDb();
     const db = getDbInstance();
 
     let produto: ProdutoLab | ProdutoProd | null = null;
 
     if (modo === 'LAB') {
-      const result = db.exec(
-        `SELECT * FROM produtos_lab WHERE id = ${id} AND deletedAt IS NULL`
-      );
-
-      if (result.length > 0 && result[0].values.length > 0) {
-        const columns = result[0].columns;
-        const values = result[0].values[0];
-        produto = {} as ProdutoLab;
-        columns.forEach((col, index) => {
-          (produto as any)[col] = values[index];
-        });
-      }
+      produto = db
+        .prepare('SELECT * FROM produtos_lab WHERE id = ? AND deletedAt IS NULL')
+        .get(id) as ProdutoLab | null;
     } else {
-      const result = db.exec(
-        `SELECT * FROM produtos_prod WHERE id = ${id} AND deletedAt IS NULL`
-      );
-
-      if (result.length > 0 && result[0].values.length > 0) {
-        const columns = result[0].columns;
-        const values = result[0].values[0];
-        produto = {} as ProdutoProd;
-        columns.forEach((col, index) => {
-          (produto as any)[col] = values[index];
-        });
-      }
+      produto = db
+        .prepare('SELECT * FROM produtos_prod WHERE id = ? AND deletedAt IS NULL')
+        .get(id) as ProdutoProd | null;
     }
 
     if (!produto) {
@@ -99,21 +81,19 @@ export async function PUT(
       );
     }
 
-    await getDb();
+    getDb();
     const db = getDbInstance();
 
     // Verificar se produto existe
     let exists = false;
     if (modo === 'LAB') {
-      const check = db.exec(
-        `SELECT id FROM produtos_lab WHERE id = ${id} AND deletedAt IS NULL`
-      );
-      exists = check.length > 0 && check[0].values.length > 0;
+      exists = !!db
+        .prepare('SELECT id FROM produtos_lab WHERE id = ? AND deletedAt IS NULL')
+        .get(id);
     } else {
-      const check = db.exec(
-        `SELECT id FROM produtos_prod WHERE id = ${id} AND deletedAt IS NULL`
-      );
-      exists = check.length > 0 && check[0].values.length > 0;
+      exists = !!db
+        .prepare('SELECT id FROM produtos_prod WHERE id = ? AND deletedAt IS NULL')
+        .get(id);
     }
 
     if (!exists) {
@@ -206,12 +186,9 @@ export async function PUT(
       values.push(now);
       values.push(id);
 
-      const stmt = db.prepare(
-        `UPDATE produtos_lab SET ${updates.join(', ')} WHERE id = ?`
+      db.prepare(`UPDATE produtos_lab SET ${updates.join(', ')} WHERE id = ?`).run(
+        ...values
       );
-      stmt.bind(values);
-      stmt.step();
-      stmt.free();
     } else {
       const produtoData = body as Partial<ProdutoProdInput>;
       const updates: string[] = [];
@@ -234,33 +211,23 @@ export async function PUT(
       values.push(now);
       values.push(id);
 
-      const stmt = db.prepare(
-        `UPDATE produtos_prod SET ${updates.join(', ')} WHERE id = ?`
+      db.prepare(`UPDATE produtos_prod SET ${updates.join(', ')} WHERE id = ?`).run(
+        ...values
       );
-      stmt.bind(values);
-      stmt.step();
-      stmt.free();
     }
 
     // Buscar produto atualizado
-    const result =
+    const produtoAtualizado =
       modo === 'LAB'
-        ? db.exec(`SELECT * FROM produtos_lab WHERE id = ${id}`)
-        : db.exec(`SELECT * FROM produtos_prod WHERE id = ${id}`);
+        ? (db.prepare('SELECT * FROM produtos_lab WHERE id = ?').get(id) as ProdutoLab)
+        : (db.prepare('SELECT * FROM produtos_prod WHERE id = ?').get(id) as ProdutoProd);
 
-    if (result.length === 0 || result[0].values.length === 0) {
+    if (!produtoAtualizado) {
       return NextResponse.json(
         { error: 'Erro ao atualizar produto' },
         { status: 500 }
       );
     }
-
-    const columns = result[0].columns;
-    const values = result[0].values[0];
-    const produtoAtualizado: any = {};
-    columns.forEach((col, index) => {
-      produtoAtualizado[col] = values[index];
-    });
 
     saveDb();
 
@@ -296,40 +263,34 @@ export async function DELETE(
       );
     }
 
-    await getDb();
+    getDb();
     const db = getDbInstance();
     const now = Math.floor(Date.now() / 1000);
 
     if (modo === 'LAB') {
       // Verificar se produto existe e não está deletado
-      const check = db.exec(
-        `SELECT id FROM produtos_lab WHERE id = ${id} AND deletedAt IS NULL`
-      );
-      if (check.length === 0 || check[0].values.length === 0) {
+      const check = db
+        .prepare('SELECT id FROM produtos_lab WHERE id = ? AND deletedAt IS NULL')
+        .get(id);
+      if (!check) {
         return NextResponse.json({ error: 'Produto não encontrado' }, { status: 404 });
       }
 
-      const stmt = db.prepare(
+      db.prepare(
         `UPDATE produtos_lab SET deletedAt = ? WHERE id = ? AND deletedAt IS NULL`
-      );
-      stmt.bind([now, id]);
-      stmt.step();
-      stmt.free();
+      ).run(now, id);
     } else {
       // Verificar se produto existe e não está deletado
-      const check = db.exec(
-        `SELECT id FROM produtos_prod WHERE id = ${id} AND deletedAt IS NULL`
-      );
-      if (check.length === 0 || check[0].values.length === 0) {
+      const check = db
+        .prepare('SELECT id FROM produtos_prod WHERE id = ? AND deletedAt IS NULL')
+        .get(id);
+      if (!check) {
         return NextResponse.json({ error: 'Produto não encontrado' }, { status: 404 });
       }
 
-      const stmt = db.prepare(
+      db.prepare(
         `UPDATE produtos_prod SET deletedAt = ? WHERE id = ? AND deletedAt IS NULL`
-      );
-      stmt.bind([now, id]);
-      stmt.step();
-      stmt.free();
+      ).run(now, id);
     }
 
     saveDb();

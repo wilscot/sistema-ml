@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMode } from '@/hooks/useMode';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function HomePage() {
   const router = useRouter();
@@ -23,11 +24,5 @@ export default function HomePage() {
     }
   }, [mode, router, mounted]);
 
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="text-center">
-        <p className="text-muted-foreground">Carregando...</p>
-      </div>
-    </div>
-  );
+  return <LoadingSpinner />;
 }

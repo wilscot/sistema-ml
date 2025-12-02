@@ -21,13 +21,16 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Trash2 } from 'lucide-react';
 import type { Cenario } from '@/types/cenario';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import EmptyState from '@/components/EmptyState';
 
 interface CenarioListProps {
   cenarios: Cenario[];
   onDelete: (id: number) => void;
+  loading?: boolean;
 }
 
-export function CenarioList({ cenarios, onDelete }: CenarioListProps) {
+export function CenarioList({ cenarios, onDelete, loading = false }: CenarioListProps) {
   const [openAlertDialog, setOpenAlertDialog] = useState(false);
   const [cenarioToDelete, setCenarioToDelete] = useState<number | null>(null);
 
@@ -44,11 +47,16 @@ export function CenarioList({ cenarios, onDelete }: CenarioListProps) {
     }
   };
 
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
   if (cenarios.length === 0) {
     return (
-      <div className="text-center py-10 text-muted-foreground">
-        <p>Nenhum cenário criado. Clique em &quot;+ Novo Cenário&quot; para simular.</p>
-      </div>
+      <EmptyState
+        titulo="Nenhum cenário criado"
+        descricao="Clique em + Novo Cenário para simular."
+      />
     );
   }
 

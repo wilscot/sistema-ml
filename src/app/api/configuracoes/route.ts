@@ -15,46 +15,28 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    await getDb();
+    getDb();
     const db = getDbInstance();
 
     const tableName = modo === 'LAB' ? 'configuracoes_lab' : 'configuracoes_prod';
 
     // Buscar configurações (singleton - sempre deve existir 1 registro)
-    const result = db.exec(`SELECT * FROM ${tableName} LIMIT 1`);
+    let configuracao = db
+      .prepare(`SELECT * FROM ${tableName} LIMIT 1`)
+      .get() as Configuracao | null;
 
-    let configuracao: Configuracao | null = null;
-
-    if (result.length > 0 && result[0].values.length > 0) {
-      const columns = result[0].columns;
-      const values = result[0].values[0];
-
-      const config: any = {};
-      columns.forEach((col, index) => {
-        config[col] = values[index];
-      });
-      configuracao = config as Configuracao;
-    } else {
+    if (!configuracao) {
       // Se não existir, criar com valores default
       const now = Math.floor(Date.now() / 1000);
-      db.run(
+      db.prepare(
         `INSERT INTO ${tableName} (taxaClassico, taxaPremium, cotacaoDolar, updatedAt)
-         VALUES (11.0, 16.0, 5.60, ?)`,
-        [now]
-      );
-      saveDb();
+         VALUES (11.0, 16.0, 5.60, ?)`
+      ).run(now);
 
       // Buscar novamente
-      const newResult = db.exec(`SELECT * FROM ${tableName} LIMIT 1`);
-      if (newResult.length > 0 && newResult[0].values.length > 0) {
-        const columns = newResult[0].columns;
-        const values = newResult[0].values[0];
-        const config: any = {};
-        columns.forEach((col, index) => {
-          config[col] = values[index];
-        });
-        configuracao = config as Configuracao;
-      }
+      configuracao = db
+        .prepare(`SELECT * FROM ${tableName} LIMIT 1`)
+        .get() as Configuracao | null;
     }
 
     if (!configuracao) {
@@ -96,39 +78,32 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    await getDb();
+    getDb();
     const db = getDbInstance();
 
     const tableName = modo === 'LAB' ? 'configuracoes_lab' : 'configuracoes_prod';
     const now = Math.floor(Date.now() / 1000);
 
     // Atualizar configurações (singleton - sempre 1 registro)
-    db.run(
+    db.prepare(
       `UPDATE ${tableName} 
        SET taxaClassico = ?, taxaPremium = ?, cotacaoDolar = ?, updatedAt = ?
-       WHERE id = (SELECT id FROM ${tableName} LIMIT 1)`,
-      [body.taxaClassico!, body.taxaPremium!, body.cotacaoDolar!, now]
-    );
-
-    saveDb();
+       WHERE id = (SELECT id FROM ${tableName} LIMIT 1)`
+    ).run(body.taxaClassico!, body.taxaPremium!, body.cotacaoDolar!, now);
 
     // Buscar configuração atualizada
-    const result = db.exec(`SELECT * FROM ${tableName} LIMIT 1`);
-    if (result.length === 0 || result[0].values.length === 0) {
+    const configuracao = db
+      .prepare(`SELECT * FROM ${tableName} LIMIT 1`)
+      .get() as Configuracao | null;
+
+    if (!configuracao) {
       return NextResponse.json(
         { error: 'Erro ao buscar configurações atualizadas' },
         { status: 500 }
       );
     }
 
-    const columns = result[0].columns;
-    const values = result[0].values[0];
-    const config: any = {};
-    columns.forEach((col, index) => {
-      config[col] = values[index];
-    });
-
-    return NextResponse.json({ configuracao: config as Configuracao });
+    return NextResponse.json({ configuracao });
   } catch (error: any) {
     console.error('Erro ao atualizar configurações:', error);
     return NextResponse.json(

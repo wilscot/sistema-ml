@@ -15,12 +15,12 @@ export async function DELETE(
       );
     }
 
-    await getDb();
+    getDb();
     const db = getDbInstance();
 
     // Verificar se cenário existe
-    const checkResult = db.exec(`SELECT id FROM cenarios_lab WHERE id = ${id}`);
-    if (checkResult.length === 0 || checkResult[0].values.length === 0) {
+    const check = db.prepare('SELECT id FROM cenarios_lab WHERE id = ?').get(id);
+    if (!check) {
       return NextResponse.json(
         { error: 'Cenário não encontrado' },
         { status: 404 }
@@ -28,7 +28,7 @@ export async function DELETE(
     }
 
     // Hard delete
-    db.run(`DELETE FROM cenarios_lab WHERE id = ${id}`);
+    db.prepare('DELETE FROM cenarios_lab WHERE id = ?').run(id);
     saveDb();
 
     return NextResponse.json({ success: true });

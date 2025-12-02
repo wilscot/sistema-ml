@@ -107,13 +107,13 @@ export function ProdutoForm({ modo, produto, onSuccess }: ProdutoFormProps) {
           precoUSD: typeof precoUSD === 'number' ? precoUSD : parseFloat(precoUSD.toString()),
           cotacao: typeof cotacao === 'number' ? cotacao : parseFloat(cotacao.toString()),
           freteTotal: typeof freteTotal === 'number' ? freteTotal : parseFloat(freteTotal.toString()),
-          fornecedor: fornecedor || undefined,
+          fornecedor: fornecedor || null,
         };
         validation = validarProdutoLab(data as ProdutoLabInput);
       } else {
         data = {
           nome,
-          fornecedor: fornecedor || undefined,
+          fornecedor: fornecedor || null,
           quantidade: typeof quantidade === 'number' ? quantidade : parseInt(quantidade.toString()),
         };
         validation = validarProdutoProd(data as ProdutoProdInput);

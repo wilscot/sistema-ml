@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ProdutoList } from '@/components/ProdutoList';
 import { ProdutoForm } from '@/components/ProdutoForm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import type { ProdutoLab } from '@/types/produto';
+import type { ProdutoLab, ProdutoProd } from '@/types/produto';
 
 export default function ProdutosLabPage() {
   const [modalAberto, setModalAberto] = useState(false);
@@ -36,8 +36,8 @@ export default function ProdutosLabPage() {
     setModalAberto(true);
   };
 
-  const handleEdit = (produto: ProdutoLab) => {
-    setProdutoEditando(produto);
+  const handleEdit = (produto: ProdutoLab | ProdutoProd) => {
+    setProdutoEditando(produto as ProdutoLab);
     setModalAberto(true);
   };
 
@@ -66,16 +66,13 @@ export default function ProdutosLabPage() {
         <Button onClick={handleNovoProduto}>+ Novo Produto LAB</Button>
       </div>
 
-      {loading ? (
-        <div className="text-center py-8">Carregando...</div>
-      ) : (
-        <ProdutoList
-          modo="LAB"
-          produtos={produtos}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-        />
-      )}
+      <ProdutoList
+        modo="LAB"
+        produtos={produtos}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        loading={loading}
+      />
 
       <Dialog open={modalAberto} onOpenChange={setModalAberto}>
         <DialogContent className="max-w-2xl">

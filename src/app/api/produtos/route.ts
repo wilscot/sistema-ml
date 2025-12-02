@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const modo = searchParams.get('modo');
+    const deletados = searchParams.get('deletados');
 
     if (!modo || (modo !== 'LAB' && modo !== 'PROD')) {
       return NextResponse.json(
@@ -18,49 +19,33 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    await getDb();
+    getDb();
     const db = getDbInstance();
 
     let produtos: (ProdutoLab | ProdutoProd)[] = [];
 
+    // Se deletados=true, buscar produtos deletados; caso contrário, buscar não deletados
+    const whereClause =
+      deletados === 'true'
+        ? 'WHERE deletedAt IS NOT NULL'
+        : 'WHERE deletedAt IS NULL';
+
     if (modo === 'LAB') {
-      const result = db.exec(
-        `SELECT * FROM produtos_lab 
-         WHERE deletedAt IS NULL 
-         ORDER BY createdAt DESC`
-      );
-
-      if (result.length > 0) {
-        const columns = result[0].columns;
-        const values = result[0].values;
-
-        produtos = values.map((row) => {
-          const produto: any = {};
-          columns.forEach((col, index) => {
-            produto[col] = row[index];
-          });
-          return produto as ProdutoLab;
-        });
-      }
+      produtos = db
+        .prepare(
+          `SELECT * FROM produtos_lab 
+           ${whereClause} 
+           ORDER BY deletedAt DESC, createdAt DESC`
+        )
+        .all() as ProdutoLab[];
     } else {
-      const result = db.exec(
-        `SELECT * FROM produtos_prod 
-         WHERE deletedAt IS NULL 
-         ORDER BY createdAt DESC`
-      );
-
-      if (result.length > 0) {
-        const columns = result[0].columns;
-        const values = result[0].values;
-
-        produtos = values.map((row) => {
-          const produto: any = {};
-          columns.forEach((col, index) => {
-            produto[col] = row[index];
-          });
-          return produto as ProdutoProd;
-        });
-      }
+      produtos = db
+        .prepare(
+          `SELECT * FROM produtos_prod 
+           ${whereClause} 
+           ORDER BY deletedAt DESC, createdAt DESC`
+        )
+        .all() as ProdutoProd[];
     }
 
     return NextResponse.json({ produtos });
@@ -100,7 +85,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await getDb();
+    getDb();
     const db = getDbInstance();
     const now = Math.floor(Date.now() / 1000);
 
@@ -110,76 +95,58 @@ export async function POST(request: NextRequest) {
         `INSERT INTO produtos_lab (nome, precoUSD, cotacao, freteTotal, fornecedor, createdAt, updatedAt)
          VALUES (?, ?, ?, ?, ?, ?, ?)`
       );
-      stmt.bind([
+      const result = stmt.run(
         produtoData.nome,
         produtoData.precoUSD,
         produtoData.cotacao,
         produtoData.freteTotal,
         produtoData.fornecedor || null,
         now,
-        now,
-      ]);
-      stmt.step();
-      stmt.free();
-
-      const result = db.exec(
-        `SELECT * FROM produtos_lab WHERE id = last_insert_rowid()`
+        now
       );
 
-      if (result.length === 0) {
+      const produto = db
+        .prepare(`SELECT * FROM produtos_lab WHERE id = ?`)
+        .get(result.lastInsertRowid) as ProdutoLab;
+
+      if (!produto) {
         return NextResponse.json(
           { error: 'Erro ao criar produto' },
           { status: 500 }
         );
       }
 
-      const columns = result[0].columns;
-      const values = result[0].values[0];
-      const produto: any = {};
-      columns.forEach((col, index) => {
-        produto[col] = values[index];
-      });
-
       saveDb();
 
-      return NextResponse.json({ produto: produto as ProdutoLab }, { status: 201 });
+      return NextResponse.json({ produto }, { status: 201 });
     } else {
       const produtoData = data as ProdutoProdInput;
       const stmt = db.prepare(
         `INSERT INTO produtos_prod (nome, fornecedor, quantidade, createdAt, updatedAt)
          VALUES (?, ?, ?, ?, ?)`
       );
-      stmt.bind([
+      const result = stmt.run(
         produtoData.nome,
         produtoData.fornecedor || null,
         produtoData.quantidade || 0,
         now,
-        now,
-      ]);
-      stmt.step();
-      stmt.free();
-
-      const result = db.exec(
-        `SELECT * FROM produtos_prod WHERE id = last_insert_rowid()`
+        now
       );
 
-      if (result.length === 0) {
+      const produto = db
+        .prepare(`SELECT * FROM produtos_prod WHERE id = ?`)
+        .get(result.lastInsertRowid) as ProdutoProd;
+
+      if (!produto) {
         return NextResponse.json(
           { error: 'Erro ao criar produto' },
           { status: 500 }
         );
       }
 
-      const columns = result[0].columns;
-      const values = result[0].values[0];
-      const produto: any = {};
-      columns.forEach((col, index) => {
-        produto[col] = values[index];
-      });
-
       saveDb();
 
-      return NextResponse.json({ produto: produto as ProdutoProd }, { status: 201 });
+      return NextResponse.json({ produto }, { status: 201 });
     }
   } catch (error) {
     console.error('Erro ao criar produto:', error);

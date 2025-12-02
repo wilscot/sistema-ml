@@ -4,6 +4,9 @@ export interface Venda {
   id: number;
   produtoId: number;
   compraId: number | null;
+  numeroVenda: string | null;
+  nomeComprador: string | null;
+  cpfComprador: string | null;
   quantidadeVendida: number;
   precoVenda: number;
   tipoAnuncio: TipoAnuncio;
@@ -12,6 +15,7 @@ export interface Venda {
   custoTotal: number;
   lucroLiquido: number;
   data: number;
+  deletedAt: number | null;
   createdAt: number;
 }
 
@@ -27,6 +31,8 @@ export type VendaInput = Omit<
 
 export interface VendaML {
   numeroVenda: string;
+  nomeComprador: string;
+  cpfComprador: string;
   data: Date;
   estado: string;
   descricaoStatus: string;

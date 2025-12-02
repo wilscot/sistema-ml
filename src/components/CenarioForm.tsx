@@ -88,17 +88,6 @@ export function CenarioForm({ produtoId, cenario, onSuccess }: CenarioFormProps)
       1
     );
 
-    const receitaClassico = calcularReceita(
-      Number(precoVendaClassico),
-      1,
-      0
-    );
-    const receitaPremium = calcularReceita(
-      Number(precoVendaPremium),
-      1,
-      0
-    );
-
     const taxaMLClassico = calcularTaxaML(
       Number(precoVendaClassico),
       config.taxaClassico
@@ -108,13 +97,18 @@ export function CenarioForm({ produtoId, cenario, onSuccess }: CenarioFormProps)
       config.taxaPremium
     );
 
+    // Calcular lucros líquidos (simulação não tem frete, então frete = 0)
     const lucroClassico = calcularLucroLiquido(
-      receitaClassico,
+      Number(precoVendaClassico),
+      1, // quantidade = 1 para simulação
+      0, // frete = 0 (simulação não tem frete)
       custoUnitario,
       taxaMLClassico
     );
     const lucroPremium = calcularLucroLiquido(
-      receitaPremium,
+      Number(precoVendaPremium),
+      1, // quantidade = 1 para simulação
+      0, // frete = 0 (simulação não tem frete)
       custoUnitario,
       taxaMLPremium
     );
@@ -128,11 +122,22 @@ export function CenarioForm({ produtoId, cenario, onSuccess }: CenarioFormProps)
     e.preventDefault();
     setLoading(true);
 
+    if (!config) {
+      toast({
+        title: 'Erro',
+        description: 'Configurações não carregadas',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const data: CenarioInput = {
       produtoId,
       nome,
       precoVendaClassico: Number(precoVendaClassico),
       precoVendaPremium: Number(precoVendaPremium),
+      taxaClassico: config.taxaClassico,
+      taxaPremium: config.taxaPremium,
     };
 
     const validation = validarCenario(data);
