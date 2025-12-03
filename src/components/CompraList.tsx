@@ -10,6 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Trash2 } from 'lucide-react';
 import type { Compra } from '@/types/compra';
 import type { ProdutoProd } from '@/types/produto';
 import { format } from 'date-fns';
@@ -20,9 +21,10 @@ import EmptyState from '@/components/EmptyState';
 interface CompraListProps {
   compras: Compra[];
   loading?: boolean;
+  onDelete?: () => void;
 }
 
-export function CompraList({ compras, loading = false }: CompraListProps) {
+export function CompraList({ compras, loading = false, onDelete }: CompraListProps) {
   const [produtos, setProdutos] = useState<Record<number, ProdutoProd>>({});
 
   useEffect(() => {
@@ -90,6 +92,7 @@ export function CompraList({ compras, loading = false }: CompraListProps) {
             <TableHead>Data Compra</TableHead>
             <TableHead>Fornecedor</TableHead>
             <TableHead>Observações</TableHead>
+            <TableHead className="text-center">Ações</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -113,6 +116,38 @@ export function CompraList({ compras, loading = false }: CompraListProps) {
                 <TableCell>{compra.fornecedor || '-'}</TableCell>
                 <TableCell className="max-w-[200px]">
                   {truncarTexto(compra.observacoes)}
+                </TableCell>
+                <TableCell className="text-center">
+                  <button
+                    onClick={async () => {
+                      if (!confirm('Tem certeza que deseja excluir esta compra?\n\nEla será movida para a lixeira.')) {
+                        return;
+                      }
+                      
+                      try {
+                        const res = await fetch(`/api/compras/${compra.id}`, {
+                          method: 'DELETE'
+                        });
+                        
+                        if (!res.ok) {
+                          const error = await res.json();
+                          throw new Error(error.error || 'Erro ao excluir');
+                        }
+                        
+                        if (onDelete) {
+                          onDelete();
+                        } else {
+                          window.location.reload();
+                        }
+                      } catch (error: any) {
+                        alert(error.message || 'Erro ao excluir compra');
+                      }
+                    }}
+                    className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+                    title="Excluir compra"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </TableCell>
               </TableRow>
             );

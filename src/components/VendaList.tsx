@@ -162,7 +162,7 @@ export default function VendaList({ vendas, produtos, loading, onDelete }: Venda
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-foreground">
-                    {produto?.nome || `Produto #${venda.produtoId}`}
+                    {(venda as any).produtoNome || produto?.nome || `Produto #${venda.produtoId}`}
                   </td>
                   <td className="px-4 py-3 text-sm">
                     {venda.nomeComprador ? (

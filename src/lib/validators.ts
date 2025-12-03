@@ -12,7 +12,6 @@ interface ProdutoLabInput {
 
 interface ProdutoProdInput {
   nome?: string;
-  quantidade?: number;
 }
 
 interface CompraInput {
@@ -99,16 +98,6 @@ export function validarProdutoProd(
     errors.push('Nome é obrigatório');
   } else if (data.nome.trim().length < 3) {
     errors.push('Nome deve ter pelo menos 3 caracteres');
-  }
-
-  if (data.quantidade === undefined || data.quantidade === null) {
-    errors.push('Quantidade é obrigatória');
-  } else if (
-    typeof data.quantidade !== 'number' ||
-    !Number.isInteger(data.quantidade) ||
-    data.quantidade < 0
-  ) {
-    errors.push('Quantidade deve ser um número inteiro maior ou igual a zero');
   }
 
   return {

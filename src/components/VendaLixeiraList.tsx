@@ -150,7 +150,7 @@ export function VendaLixeiraList({
                   )}
                 </TableCell>
                 <TableCell>
-                  {produto?.nome || `Produto #${venda.produtoId}`}
+                  {(venda as any).produtoNome || produto?.nome || `Produto #${venda.produtoId}`}
                 </TableCell>
                 <TableCell>
                   {venda.nomeComprador || venda.cpfComprador ? (

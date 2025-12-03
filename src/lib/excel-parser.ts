@@ -23,6 +23,27 @@ export interface ParseResult {
   statusDisponiveis: string[];
 }
 
+// Status válidos para importação
+const STATUS_VALIDOS = [
+  'Entregue',
+  'Venda entregue',
+  'A caminho',
+  'Reclamação encerrada com reembolso parcial',
+];
+
+// Função para verificar se status é válido
+function isStatusValido(estado: string | null): boolean {
+  if (!estado) return false;
+  
+  const estadoNormalizado = estado.trim();
+  
+  // Verificar match exato (case-insensitive)
+  return STATUS_VALIDOS.some(
+    (statusValido) => 
+      statusValido.toLowerCase() === estadoNormalizado.toLowerCase()
+  );
+}
+
 // Mapeamento de meses em português
 const mesesMap: Record<string, number> = {
   janeiro: 0,
@@ -155,26 +176,7 @@ function isLinhaCabecalho(linha: any[]): boolean {
   );
 }
 
-/**
- * Verifica se estado é proibido (devolução/reclamação)
- */
-function isStatusProibido(estado: string): boolean {
-  if (!estado || typeof estado !== 'string') {
-    return false;
-  }
-
-  const estadoLower = estado.toLowerCase().trim();
-  const statusProibidos = [
-    'devolução',
-    'devolucao',
-    'reclamação',
-    'reclamacao',
-    'cancelado',
-    'cancelada',
-  ];
-
-  return statusProibidos.some((status) => estadoLower.includes(status));
-}
+// REMOVIDO: agora usamos isStatusValido() ao invés de isStatusProibido()
 
 /**
  * Normaliza tipo de anúncio
@@ -336,12 +338,16 @@ export async function parseExcelML(file: File): Promise<ParseResult> {
           continue;
         }
 
-        // Verificar status proibido
-        if (isStatusProibido(estado)) {
+        // Verificar se status é válido para importação
+        if (!isStatusValido(estado)) {
           result.linhasIgnoradas.push({
             linha: numeroLinha,
-            motivo: `Status proibido: "${estado}"`,
-            dados: { estado, descricaoStatus },
+            motivo: `Status não permitido para importação: "${estado}"`,
+            dados: { 
+              estado, 
+              descricaoStatus,
+              statusValidos: STATUS_VALIDOS.join(', ')
+            },
           });
           continue;
         }
@@ -393,6 +399,21 @@ export async function parseExcelML(file: File): Promise<ParseResult> {
       motivo: `Erro ao ler arquivo Excel: ${error.message}`,
     });
   }
+
+  // Log de estatísticas
+  console.log(`
+  ═══════════════════════════════════════
+  📊 RESUMO DA IMPORTAÇÃO
+  ═══════════════════════════════════════
+  Total de linhas: ${result.totalLinhas}
+  Vendas válidas: ${result.vendas.length}
+  Linhas ignoradas: ${result.linhasIgnoradas.length}
+  Erros: ${result.erros.length}
+  
+  Status aceitos:
+  ${STATUS_VALIDOS.map(s => `  ✓ ${s}`).join('\n')}
+  ═══════════════════════════════════════
+`);
 
   return result;
 }

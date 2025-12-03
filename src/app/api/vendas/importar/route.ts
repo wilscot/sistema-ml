@@ -53,7 +53,7 @@ async function processarVenda(
     // 1. VERIFICAR ESTOQUE
     const estoqueTotal = db
       .prepare(
-        'SELECT COALESCE(SUM(quantidadeDisponivel), 0) as total FROM compras WHERE produtoId = ?'
+        'SELECT COALESCE(SUM(quantidadeDisponivel), 0) as total FROM compras WHERE produtoId = ? AND deletedAt IS NULL'
       )
       .get(produtoId) as { total: number } | undefined;
 
@@ -72,7 +72,7 @@ async function processarVenda(
       const comprasDisponiveis = db
         .prepare(
           `SELECT * FROM compras 
-           WHERE produtoId = ? AND quantidadeDisponivel > 0 
+           WHERE produtoId = ? AND quantidadeDisponivel > 0 AND deletedAt IS NULL
            ORDER BY dataCompra ASC`
         )
         .all(produtoId) as any[];
@@ -157,7 +157,21 @@ async function processarVenda(
       );
 
       // 6. INSERIR VENDA
-      const dataTimestamp = Math.floor(vendaML.data.getTime() / 1000);
+      // vendaML.data pode vir como Date, string ISO ou timestamp (número)
+      let dataTimestamp: number;
+      if (typeof vendaML.data === 'number') {
+        // Já é timestamp Unix (segundos)
+        dataTimestamp = vendaML.data;
+      } else if (vendaML.data instanceof Date) {
+        // É objeto Date
+        dataTimestamp = Math.floor(vendaML.data.getTime() / 1000);
+      } else if (typeof vendaML.data === 'string') {
+        // É string ISO, converter para timestamp
+        dataTimestamp = Math.floor(new Date(vendaML.data).getTime() / 1000);
+      } else {
+        // Fallback: usar data atual
+        dataTimestamp = Math.floor(Date.now() / 1000);
+      }
       const now = Math.floor(Date.now() / 1000);
 
       db.prepare(
@@ -246,10 +260,21 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Buscar produto por título do anúncio
-        const produto = buscarProdutoPorTitulo(db, vendaML.tituloAnuncio);
+        // Verificar se produtoId foi fornecido (mapeamento manual)
+        let produtoId: number | null = null;
+        
+        if (vendaML.produtoId) {
+          // ProdutoId fornecido diretamente (mapeamento manual)
+          produtoId = vendaML.produtoId;
+        } else {
+          // Buscar produto por título do anúncio (match automático)
+          const produto = buscarProdutoPorTitulo(db, vendaML.tituloAnuncio);
+          if (produto) {
+            produtoId = produto.id;
+          }
+        }
 
-        if (!produto) {
+        if (!produtoId) {
           // Produto não encontrado
           if (!result.produtosNaoEncontrados.includes(vendaML.tituloAnuncio)) {
             result.produtosNaoEncontrados.push(vendaML.tituloAnuncio);
@@ -268,7 +293,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Processar venda
-        const processamento = await processarVenda(db, vendaML, produto.id);
+        const processamento = await processarVenda(db, vendaML, produtoId);
 
         if (processamento.success) {
           result.importadas++;

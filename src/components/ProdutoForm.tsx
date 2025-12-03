@@ -30,8 +30,6 @@ export function ProdutoForm({ modo, produto, onSuccess }: ProdutoFormProps) {
   const [freteTotal, setFreteTotal] = useState<number | ''>('');
   const [fornecedor, setFornecedor] = useState('');
 
-  // Estado para PROD
-  const [quantidade, setQuantidade] = useState<number | ''>('');
 
   // Carregar dados do produto se estiver editando
   useEffect(() => {
@@ -44,9 +42,6 @@ export function ProdutoForm({ modo, produto, onSuccess }: ProdutoFormProps) {
         setPrecoUSD(produtoLab.precoUSD);
         setCotacao(produtoLab.cotacao);
         setFreteTotal(produtoLab.freteTotal);
-      } else {
-        const produtoProd = produto as ProdutoProd;
-        setQuantidade(produtoProd.quantidade);
       }
     } else {
       // Reset form
@@ -55,7 +50,6 @@ export function ProdutoForm({ modo, produto, onSuccess }: ProdutoFormProps) {
       setCotacao('');
       setFreteTotal('');
       setFornecedor('');
-      setQuantidade('');
     }
   }, [produto, modo]);
 
@@ -114,7 +108,6 @@ export function ProdutoForm({ modo, produto, onSuccess }: ProdutoFormProps) {
         data = {
           nome,
           fornecedor: fornecedor || null,
-          quantidade: typeof quantidade === 'number' ? quantidade : parseInt(quantidade.toString()),
         };
         validation = validarProdutoProd(data as ProdutoProdInput);
       }
@@ -248,22 +241,7 @@ export function ProdutoForm({ modo, produto, onSuccess }: ProdutoFormProps) {
             </div>
           )}
         </>
-      ) : (
-        <div className="space-y-2">
-          <Label htmlFor="quantidade">Quantidade *</Label>
-          <Input
-            id="quantidade"
-            type="number"
-            min="0"
-            value={quantidade}
-            onChange={(e) =>
-              setQuantidade(e.target.value ? parseInt(e.target.value) : '')
-            }
-            required
-            placeholder="0"
-          />
-        </div>
-      )}
+      ) : null}
 
       <div className="space-y-2">
         <Label htmlFor="fornecedor">Fornecedor</Label>

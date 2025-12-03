@@ -46,7 +46,7 @@ export default function ComprasPage() {
         <Button onClick={handleNovoCompra}>+ Registrar Compra</Button>
       </div>
 
-      <CompraList compras={compras} loading={loading} />
+      <CompraList compras={compras} loading={loading} onDelete={buscarCompras} />
 
       <Dialog open={modalAberto} onOpenChange={setModalAberto}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">

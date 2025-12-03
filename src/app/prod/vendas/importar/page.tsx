@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,13 +17,23 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { parseExcelML, type ParseResult } from '@/lib/excel-parser';
 import type { VendaML } from '@/types/venda';
-import { ArrowLeft, Upload, CheckCircle2, XCircle, Download } from 'lucide-react';
+import { ArrowLeft, Upload, CheckCircle2, XCircle, Download, FileSpreadsheet, Search, X } from 'lucide-react';
 import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import ProdutoMappingDialog from '@/components/ProdutoMappingDialog';
+import { useEffect } from 'react';
 
 export default function ImportarVendasPage() {
   const router = useRouter();
   const { toast } = useToast();
+
+  // Buscar produtos cadastrados para mapeamento
+  useEffect(() => {
+    fetch('/api/produtos?modo=PROD')
+      .then((res) => res.json())
+      .then((data) => setProdutos(data.produtos || []))
+      .catch((err) => console.error('Erro ao buscar produtos:', err));
+  }, []);
 
   const [file, setFile] = useState<File | null>(null);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
@@ -33,6 +43,14 @@ export default function ImportarVendasPage() {
   const [loading, setLoading] = useState(false);
   const [importando, setImportando] = useState(false);
   const [errosDetalhados, setErrosDetalhados] = useState<any[]>([]);
+  const [vendasParseadas, setVendasParseadas] = useState<any[]>([]);
+  const [vendasNaoMapeadas, setVendasNaoMapeadas] = useState<any[]>([]);
+  const [produtos, setProdutos] = useState<any[]>([]);
+  const [showMappingDialog, setShowMappingDialog] = useState(false);
+  const [mapeamentosProdutos, setMapeamentosProdutos] = useState<Record<number, number>>({});
+  const [resultado, setResultado] = useState<any>(null);
+  const [termoBusca, setTermoBusca] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -42,29 +60,41 @@ export default function ImportarVendasPage() {
     setLoading(true);
     setVendasSelecionadas(new Set());
     setErrosDetalhados([]);
+    setResultado(null);
+    setShowMappingDialog(false);
+    setVendasNaoMapeadas([]);
+    setVendasParseadas([]);
+    setParseResult(null);
 
     try {
       const result = await parseExcelML(selectedFile);
-      setParseResult(result);
 
-      // Selecionar todas as vendas válidas por padrão
-      const todasSelecionadas = new Set(
-        result.vendas.map((_, index) => index)
-      );
-      setVendasSelecionadas(todasSelecionadas);
+      if (result.erros.length > 0) {
+        toast({
+          title: 'Avisos no arquivo',
+          description: `${result.erros.length} aviso(s) encontrado(s). Verifique o preview.`,
+          variant: 'default',
+        });
+      }
 
       if (result.vendas.length === 0) {
         toast({
           title: 'Nenhuma venda encontrada',
-          description: 'O arquivo não contém vendas válidas para importar.',
+          description: 'O arquivo não contém vendas válidas.',
           variant: 'destructive',
         });
-      } else {
-        toast({
-          title: 'Arquivo processado',
-          description: `${result.vendas.length} vendas encontradas. ${result.linhasIgnoradas.length} linhas ignoradas.`,
-        });
+        setLoading(false);
+        return;
       }
+
+      // APENAS salvar vendas parseadas - NÃO importar ainda
+      setVendasParseadas(result.vendas);
+      setParseResult(result);
+
+      toast({
+        title: 'Planilha carregada!',
+        description: `${result.vendas.length} venda(s) encontrada(s). Selecione quais deseja importar.`,
+      });
     } catch (error: any) {
       toast({
         title: 'Erro ao processar arquivo',
@@ -76,29 +106,28 @@ export default function ImportarVendasPage() {
     }
   };
 
-  const toggleVendaSelecionada = (index: number) => {
-    const novasSelecionadas = new Set(vendasSelecionadas);
-    if (novasSelecionadas.has(index)) {
-      novasSelecionadas.delete(index);
+  const toggleVenda = (index: number) => {
+    const novaSelecao = new Set(vendasSelecionadas);
+    if (novaSelecao.has(index)) {
+      novaSelecao.delete(index);
     } else {
-      novasSelecionadas.add(index);
+      novaSelecao.add(index);
     }
-    setVendasSelecionadas(novasSelecionadas);
+    setVendasSelecionadas(novaSelecao);
   };
 
   const toggleTodas = () => {
-    if (!parseResult) return;
-
-    if (vendasSelecionadas.size === parseResult.vendas.length) {
+    if (vendasSelecionadas.size === vendasParseadas.length) {
+      // Desmarcar todas
       setVendasSelecionadas(new Set());
     } else {
-      const todas = new Set(parseResult.vendas.map((_, index) => index));
-      setVendasSelecionadas(todas);
+      // Marcar todas
+      setVendasSelecionadas(new Set(vendasParseadas.map((_, i) => i)));
     }
   };
 
-  const handleImportar = async () => {
-    if (!parseResult || vendasSelecionadas.size === 0) {
+  const handleImportarSelecionadas = async () => {
+    if (vendasSelecionadas.size === 0) {
       toast({
         title: 'Nenhuma venda selecionada',
         description: 'Selecione pelo menos uma venda para importar.',
@@ -107,17 +136,101 @@ export default function ImportarVendasPage() {
       return;
     }
 
+    // Filtrar apenas vendas selecionadas
+    const vendasParaImportar = vendasParseadas.filter((_, index) =>
+      vendasSelecionadas.has(index)
+    );
+
+    // Tentar match automático de produtos APENAS para vendas selecionadas
+    const vendasComMatch: any[] = [];
+    const vendasSemMatch: any[] = [];
+
+    vendasParaImportar.forEach((venda, indexRelativo) => {
+      // Buscar índice original da venda
+      const indexOriginal = vendasParseadas.findIndex(
+        (v) =>
+          v.numeroVenda === venda.numeroVenda &&
+          v.tituloAnuncio === venda.tituloAnuncio
+      );
+
+      // Buscar produto por nome (match exato)
+      const produtoEncontrado = produtos.find(
+        (p) =>
+          !p.deletedAt &&
+          p.nome.toLowerCase().trim() === venda.tituloAnuncio.toLowerCase().trim()
+      );
+
+      if (produtoEncontrado) {
+        vendasComMatch.push({
+          ...venda,
+          index: indexOriginal,
+          produtoId: produtoEncontrado.id,
+        });
+      } else {
+        vendasSemMatch.push({
+          index: indexOriginal,
+          numeroVenda: venda.numeroVenda,
+          tituloAnuncio: venda.tituloAnuncio,
+          unidades: venda.unidades,
+          precoUnitario: venda.precoUnitario,
+        });
+      }
+    });
+
+    // Se há vendas sem match, mostrar dialog de mapeamento
+    if (vendasSemMatch.length > 0) {
+      setVendasNaoMapeadas(vendasSemMatch);
+      setShowMappingDialog(true);
+      return;
+    }
+
+    // Se todos foram mapeados automaticamente, importar direto
+    await processarImportacao(vendasParaImportar, {});
+  };
+
+  const processarImportacao = async (
+    vendas: any[],
+    mapeamentos: Record<number, number>
+  ) => {
     setImportando(true);
 
     try {
-      const vendasParaImportar = Array.from(vendasSelecionadas).map(
-        (index) => parseResult.vendas[index]
-      );
+      // Aplicar mapeamentos manuais
+      // mapeamentos usa índice original da vendaParseadas
+      const vendasComProdutoId = vendas.map((venda) => {
+        // Encontrar índice original na lista completa
+        const indexOriginal = vendasParseadas.findIndex(
+          (v) =>
+            v.numeroVenda === venda.numeroVenda &&
+            v.tituloAnuncio === venda.tituloAnuncio
+        );
 
+        // Se tem mapeamento manual, usar
+        if (mapeamentos[indexOriginal] !== undefined) {
+          return {
+            ...venda,
+            produtoId: mapeamentos[indexOriginal],
+          };
+        }
+
+        // Senão, tentar match automático
+        const produtoEncontrado = produtos.find(
+          (p) =>
+            !p.deletedAt &&
+            p.nome.toLowerCase().trim() === venda.tituloAnuncio.toLowerCase().trim()
+        );
+
+        return {
+          ...venda,
+          produtoId: produtoEncontrado?.id,
+        };
+      });
+
+      // Enviar para API
       const response = await fetch('/api/vendas/importar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vendas: vendasParaImportar }),
+        body: JSON.stringify({ vendas: vendasComProdutoId }),
       });
 
       if (!response.ok) {
@@ -126,6 +239,7 @@ export default function ImportarVendasPage() {
       }
 
       const result = await response.json();
+      setResultado(result);
 
       // Capturar erros detalhados
       if (result.errosDetalhados) {
@@ -139,7 +253,7 @@ export default function ImportarVendasPage() {
       });
 
       // Toast de avisos (se houver)
-      if (result.produtosNaoEncontrados.length > 0) {
+      if (result.produtosNaoEncontrados && result.produtosNaoEncontrados.length > 0) {
         toast({
           title: 'Produtos não encontrados',
           description: `${result.produtosNaoEncontrados.length} produtos não foram encontrados: ${result.produtosNaoEncontrados.slice(0, 3).join(', ')}${result.produtosNaoEncontrados.length > 3 ? '...' : ''}`,
@@ -147,7 +261,7 @@ export default function ImportarVendasPage() {
         });
       }
 
-      if (result.erros.length > 0) {
+      if (result.erros && result.erros.length > 0) {
         toast({
           title: 'Erros durante importação',
           description: `${result.erros.length} vendas não puderam ser importadas. Verifique os detalhes abaixo.`,
@@ -163,14 +277,16 @@ export default function ImportarVendasPage() {
       }
     } catch (error: any) {
       toast({
-        title: 'Erro ao importar',
+        title: 'Erro na importação',
         description: error.message || 'Erro desconhecido',
         variant: 'destructive',
       });
     } finally {
       setImportando(false);
+      setShowMappingDialog(false);
     }
   };
+
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -236,21 +352,58 @@ export default function ImportarVendasPage() {
         </div>
       </div>
 
-      {/* Upload */}
+      {/* Upload - Destaque */}
       <div className="mb-6">
-        <Label htmlFor="file">Selecione o arquivo Excel (.xlsx, .xls)</Label>
-        <Input
-          id="file"
-          type="file"
-          accept=".xlsx,.xls"
-          onChange={handleFileChange}
-          disabled={loading}
-          className="mt-2"
-        />
+        <div className="border-2 border-dashed border-primary/30 rounded-lg p-8 bg-primary/5 hover:bg-primary/10 transition-colors">
+          <div className="flex flex-col items-center justify-center text-center space-y-4">
+            <div className="p-4 bg-primary/10 rounded-full">
+              <FileSpreadsheet className="w-12 h-12 text-primary" />
+            </div>
+            <div>
+              <Label htmlFor="file" className="text-lg font-semibold cursor-pointer">
+                Selecione o arquivo Excel do Mercado Livre
+              </Label>
+              <p className="text-sm text-muted-foreground mt-1">
+                Formatos aceitos: .xlsx, .xls
+              </p>
+            </div>
+            <div>
+              <Button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={loading}
+                size="lg"
+                className="gap-2"
+              >
+                <Upload className="w-5 h-5" />
+                {file ? 'Trocar Arquivo' : 'Escolher Arquivo'}
+              </Button>
+              <Input
+                ref={fileInputRef}
+                id="file"
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleFileChange}
+                disabled={loading}
+                className="hidden"
+              />
+            </div>
+            {file && (
+              <div className="mt-2 p-3 bg-background rounded-md border border-border">
+                <p className="text-sm font-medium text-foreground">
+                  Arquivo selecionado: <span className="text-primary">{file.name}</span>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {(file.size / 1024).toFixed(2)} KB
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
         {loading && (
-          <div className="mt-4">
+          <div className="mt-4 flex items-center justify-center gap-3">
             <LoadingSpinner size="sm" />
-            <p className="text-sm text-muted-foreground mt-2">
+            <p className="text-sm text-muted-foreground">
               Processando arquivo...
             </p>
           </div>
@@ -338,103 +491,312 @@ export default function ImportarVendasPage() {
       )}
 
       {/* Preview de Vendas */}
-      {parseResult && parseResult.vendas.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">
-              Preview de Vendas ({vendasSelecionadas.size} selecionadas)
-            </h2>
-            <Button variant="outline" size="sm" onClick={toggleTodas}>
-              {vendasSelecionadas.size === parseResult.vendas.length
-                ? 'Desselecionar Todas'
-                : 'Selecionar Todas'}
-            </Button>
-          </div>
+      {vendasParseadas.length > 0 && !resultado && (() => {
+        // Filtrar vendas baseado no termo de busca
+        const vendasFiltradas = vendasParseadas.filter((venda) => {
+          if (!termoBusca.trim()) return true;
+          
+          const termo = termoBusca.toLowerCase();
+          
+          return (
+            venda.tituloAnuncio?.toLowerCase().includes(termo) ||
+            venda.numeroVenda?.toLowerCase().includes(termo) ||
+            venda.nomeComprador?.toLowerCase().includes(termo)
+          );
+        });
 
-          <div className="rounded-md border overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <input
-                      type="checkbox"
-                      checked={
-                        vendasSelecionadas.size === parseResult.vendas.length &&
-                        parseResult.vendas.length > 0
-                      }
-                      onChange={toggleTodas}
-                      className="rounded"
-                    />
-                  </TableHead>
-                  <TableHead>Título</TableHead>
-                  <TableHead className="text-center">Unidades</TableHead>
-                  <TableHead className="text-right">Preço Unitário</TableHead>
-                  <TableHead className="text-center">Tipo</TableHead>
-                  <TableHead className="text-right">Receita</TableHead>
-                  <TableHead className="text-center">Data</TableHead>
-                  <TableHead className="text-center">Estado</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {parseResult.vendas.map((venda, index) => (
-                  <TableRow key={index}>
-                    <TableCell>
-                      <input
-                        type="checkbox"
-                        checked={vendasSelecionadas.has(index)}
-                        onChange={() => toggleVendaSelecionada(index)}
-                        className="rounded"
-                      />
-                    </TableCell>
-                    <TableCell className="font-medium max-w-xs truncate">
-                      {venda.tituloAnuncio}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {venda.unidades}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(venda.precoUnitario)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge
-                        variant={
-                          venda.tipoAnuncio === 'PREMIUM'
-                            ? 'default'
-                            : 'secondary'
-                        }
-                        className={
-                          venda.tipoAnuncio === 'PREMIUM'
-                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
-                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                        }
-                      >
-                        {venda.tipoAnuncio}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(venda.receita)}
-                    </TableCell>
-                    <TableCell className="text-center text-sm">
-                      {formatDate(venda.data)}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="outline">{venda.estado}</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+        return (
+          <div className="space-y-4 mb-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium">
+                Preview das Vendas
+              </h3>
+              <div className="text-sm text-muted-foreground">
+                {vendasParseadas.length} venda(s) total
+              </div>
+            </div>
+
+            {/* CAMPO DE BUSCA */}
+            <div className="flex items-center gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por produto, nº venda ou comprador..."
+                  value={termoBusca}
+                  onChange={(e) => setTermoBusca(e.target.value)}
+                  className="pl-9"
+                />
+                {termoBusca && (
+                  <button
+                    onClick={() => setTermoBusca('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              
+              <div className="text-sm text-muted-foreground whitespace-nowrap">
+                {vendasFiltradas.length === vendasParseadas.length
+                  ? `${vendasParseadas.length} venda(s)`
+                  : `${vendasFiltradas.length} de ${vendasParseadas.length} venda(s)`
+                }
+              </div>
+            </div>
+
+            {/* CONTROLES DE SELEÇÃO */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    // Marcar/desmarcar apenas vendas FILTRADAS
+                    const indicesFiltrados = new Set(
+                      vendasFiltradas.map((venda) => 
+                        vendasParseadas.findIndex(
+                          (v) => v.numeroVenda === venda.numeroVenda &&
+                                 v.tituloAnuncio === venda.tituloAnuncio
+                        )
+                      )
+                    );
+                    
+                    const todasFiltradasSelecionadas = Array.from(indicesFiltrados).every(
+                      (i) => vendasSelecionadas.has(i)
+                    );
+                    
+                    if (todasFiltradasSelecionadas) {
+                      // Desmarcar filtradas
+                      const novaSelecao = new Set(vendasSelecionadas);
+                      indicesFiltrados.forEach((i) => novaSelecao.delete(i));
+                      setVendasSelecionadas(novaSelecao);
+                    } else {
+                      // Marcar filtradas
+                      const novaSelecao = new Set(vendasSelecionadas);
+                      indicesFiltrados.forEach((i) => novaSelecao.add(i));
+                      setVendasSelecionadas(novaSelecao);
+                    }
+                  }}
+                >
+                  {(() => {
+                    const indicesFiltrados = vendasFiltradas.map((venda) => 
+                      vendasParseadas.findIndex(
+                        (v) => v.numeroVenda === venda.numeroVenda &&
+                               v.tituloAnuncio === venda.tituloAnuncio
+                      )
+                    );
+                    const todasFiltradasSelecionadas = indicesFiltrados.every(
+                      (i) => vendasSelecionadas.has(i)
+                    );
+                    return todasFiltradasSelecionadas
+                      ? 'Desmarcar Visíveis'
+                      : 'Marcar Visíveis';
+                  })()}
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleTodas}
+                >
+                  {vendasSelecionadas.size === vendasParseadas.length
+                    ? 'Desmarcar Todas'
+                    : 'Marcar Todas'}
+                </Button>
+              </div>
+              
+              <span className="text-sm text-muted-foreground">
+                {vendasSelecionadas.size} selecionada(s)
+              </span>
+            </div>
+
+            {/* AVISO SE NENHUMA VENDA FILTRADA */}
+            {vendasFiltradas.length === 0 && termoBusca && (
+              <div className="text-center py-8 text-muted-foreground border border-dashed rounded-lg">
+                <p className="mb-2">Nenhuma venda encontrada com "{termoBusca}"</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setTermoBusca('')}
+                >
+                  Limpar Busca
+                </Button>
+              </div>
+            )}
+
+            {/* TABELA (usar vendasFiltradas ao invés de vendasParseadas) */}
+            {vendasFiltradas.length > 0 && (
+              <div className="border border-border rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="px-4 py-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={(() => {
+                              const indicesFiltrados = vendasFiltradas.map((venda) => 
+                                vendasParseadas.findIndex(
+                                  (v) => v.numeroVenda === venda.numeroVenda &&
+                                         v.tituloAnuncio === venda.tituloAnuncio
+                                )
+                              );
+                              return indicesFiltrados.every((i) => vendasSelecionadas.has(i)) &&
+                                     indicesFiltrados.length > 0;
+                            })()}
+                            onChange={() => {
+                              // Toggle vendas filtradas
+                              const indicesFiltrados = new Set(
+                                vendasFiltradas.map((venda) => 
+                                  vendasParseadas.findIndex(
+                                    (v) => v.numeroVenda === venda.numeroVenda &&
+                                           v.tituloAnuncio === venda.tituloAnuncio
+                                  )
+                                )
+                              );
+                              
+                              const todasFiltradasSelecionadas = Array.from(indicesFiltrados).every(
+                                (i) => vendasSelecionadas.has(i)
+                              );
+                              
+                              if (todasFiltradasSelecionadas) {
+                                const novaSelecao = new Set(vendasSelecionadas);
+                                indicesFiltrados.forEach((i) => novaSelecao.delete(i));
+                                setVendasSelecionadas(novaSelecao);
+                              } else {
+                                const novaSelecao = new Set(vendasSelecionadas);
+                                indicesFiltrados.forEach((i) => novaSelecao.add(i));
+                                setVendasSelecionadas(novaSelecao);
+                              }
+                            }}
+                            className="w-4 h-4 cursor-pointer"
+                          />
+                        </th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Nº Venda</th>
+                        <th className="px-4 py-3 text-left text-sm font-medium">Produto</th>
+                        <th className="px-4 py-3 text-center text-sm font-medium">Qtd</th>
+                        <th className="px-4 py-3 text-right text-sm font-medium">Preço Unit.</th>
+                        <th className="px-4 py-3 text-center text-sm font-medium">Tipo</th>
+                        <th className="px-4 py-3 text-center text-sm font-medium">Data</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {vendasFiltradas.map((venda) => {
+                        // Encontrar índice original da venda
+                        const indexOriginal = vendasParseadas.findIndex(
+                          (v) => v.numeroVenda === venda.numeroVenda &&
+                                 v.tituloAnuncio === venda.tituloAnuncio
+                        );
+                        
+                        return (
+                          <tr
+                            key={indexOriginal}
+                            className={`hover:bg-muted/50 transition-colors ${
+                              vendasSelecionadas.has(indexOriginal) ? 'bg-primary/5' : ''
+                            }`}
+                          >
+                            <td className="px-4 py-3 text-center">
+                              <input
+                                type="checkbox"
+                                checked={vendasSelecionadas.has(indexOriginal)}
+                                onChange={() => toggleVenda(indexOriginal)}
+                                className="w-4 h-4 cursor-pointer"
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-sm font-mono">
+                              {venda.numeroVenda || '-'}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {/* DESTACAR TERMO DE BUSCA */}
+                              {termoBusca ? (
+                                <span
+                                  dangerouslySetInnerHTML={{
+                                    __html: venda.tituloAnuncio.replace(
+                                      new RegExp(termoBusca.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
+                                      (match) => `<mark class="bg-yellow-200 dark:bg-yellow-800">${match}</mark>`
+                                    ),
+                                  }}
+                                />
+                              ) : (
+                                venda.tituloAnuncio
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-center text-sm">
+                              {venda.unidades}
+                            </td>
+                            <td className="px-4 py-3 text-right text-sm">
+                              R$ {venda.precoUnitario.toFixed(2)}
+                            </td>
+                            <td className="px-4 py-3 text-center text-sm">
+                              <span
+                                className={`px-2 py-1 text-xs rounded-full ${
+                                  venda.tipoAnuncio === 'PREMIUM'
+                                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
+                                    : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                                }`}
+                              >
+                                {venda.tipoAnuncio}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center text-sm text-muted-foreground">
+                              {new Date(venda.data).toLocaleDateString('pt-BR')}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* BOTÕES DE AÇÃO */}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setVendasParseadas([]);
+                  setVendasSelecionadas(new Set());
+                  setTermoBusca('');
+                  setParseResult(null);
+                  setErrosDetalhados([]);
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                  }
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleImportarSelecionadas}
+                disabled={vendasSelecionadas.size === 0 || importando}
+                size="lg"
+              >
+                {importando ? (
+                  <>
+                    <LoadingSpinner size="sm" className="mr-2" />
+                    Importando...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Importar Selecionadas ({vendasSelecionadas.size})
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+
 
       {/* Resultado da Importação - Sucesso */}
-      {parseResult && !importando && errosDetalhados.length === 0 && (
+      {resultado && !importando && errosDetalhados.length === 0 && (
         <div className="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
             <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
-              Importação concluída com sucesso!
+              Importação concluída com sucesso! {resultado.importadas} venda(s) importada(s).
             </h3>
           </div>
         </div>
@@ -505,30 +867,30 @@ export default function ImportarVendasPage() {
         </div>
       )}
 
-      {/* Botão Importar */}
-      {parseResult && parseResult.vendas.length > 0 && (
-        <div className="flex justify-end gap-2">
-          <Link href="/prod/vendas">
-            <Button variant="outline">Cancelar</Button>
-          </Link>
-          <Button
-            onClick={handleImportar}
-            disabled={importando || vendasSelecionadas.size === 0}
-          >
-            {importando ? (
-              <>
-                <LoadingSpinner size="sm" />
-                <span className="ml-2">Importando...</span>
-              </>
-            ) : (
-              <>
-                <Upload className="w-4 h-4 mr-2" />
-                Importar {vendasSelecionadas.size} Venda(s) Selecionada(s)
-              </>
-            )}
-          </Button>
-        </div>
-      )}
+      {/* Dialog de Mapeamento */}
+      <ProdutoMappingDialog
+        open={showMappingDialog}
+        vendasNaoMapeadas={vendasNaoMapeadas}
+        produtosDisponiveis={produtos.filter((p) => !p.deletedAt)}
+        onConfirm={async (mapeamentos) => {
+          setMapeamentosProdutos(mapeamentos);
+          // Filtrar apenas vendas selecionadas
+          const vendasParaImportar = vendasParseadas.filter((_, index) =>
+            vendasSelecionadas.has(index)
+          );
+          await processarImportacao(vendasParaImportar, mapeamentos);
+        }}
+        onCancel={() => {
+          setShowMappingDialog(false);
+          setVendasNaoMapeadas([]);
+          
+          toast({
+            title: 'Importação cancelada',
+            description: 'Nenhuma venda foi importada.',
+          });
+        }}
+      />
+
     </div>
   );
 }

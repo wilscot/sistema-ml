@@ -13,19 +13,29 @@ export async function GET(request: NextRequest) {
     const produtoIdParam = searchParams.get('produtoId');
     const periodoParam = searchParams.get('periodo');
     const deletadosParam = searchParams.get('deletados');
+    const dataInicio = searchParams.get('dataInicio');
+    const dataFim = searchParams.get('dataFim');
 
     getDb();
     const db = getDbInstance();
 
-    let vendas: Venda[] = [];
-    let query = 'SELECT * FROM vendas WHERE 1=1';
+    let vendas: any[] = [];
+    let query = `
+      SELECT 
+        vendas.*,
+        produtos_prod.nome as produtoNome,
+        produtos_prod.fornecedor as produtoFornecedor
+      FROM vendas 
+      LEFT JOIN produtos_prod ON vendas.produtoId = produtos_prod.id
+      WHERE 1=1
+    `;
     const params: any[] = [];
 
     // Filtrar por deletedAt
     if (deletadosParam === 'true') {
-      query += ' AND deletedAt IS NOT NULL';
+      query += ' AND vendas.deletedAt IS NOT NULL';
     } else {
-      query += ' AND deletedAt IS NULL';
+      query += ' AND vendas.deletedAt IS NULL';
     }
 
     if (produtoIdParam) {
@@ -36,11 +46,23 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
       }
-      query += ' AND produtoId = ?';
+      query += ' AND vendas.produtoId = ?';
       params.push(produtoId);
     }
 
-    if (periodoParam === 'mes') {
+    // Filtro por dataInicio e dataFim (prioridade sobre periodo)
+    if (dataInicio && dataFim) {
+      const inicio = parseInt(dataInicio, 10);
+      const fim = parseInt(dataFim, 10);
+      if (isNaN(inicio) || isNaN(fim)) {
+        return NextResponse.json(
+          { error: 'dataInicio e dataFim devem ser timestamps válidos' },
+          { status: 400 }
+        );
+      }
+      query += ' AND vendas.data >= ? AND vendas.data <= ?';
+      params.push(inicio, fim);
+    } else if (periodoParam === 'mes') {
       const now = new Date();
       const year = now.getFullYear();
       const month = now.getMonth() + 1;
@@ -50,16 +72,16 @@ export async function GET(request: NextRequest) {
       const endOfMonth = Math.floor(
         new Date(year, month, 0, 23, 59, 59).getTime() / 1000
       );
-      query += ' AND data >= ? AND data <= ?';
+      query += ' AND vendas.data >= ? AND vendas.data <= ?';
       params.push(startOfMonth, endOfMonth);
     }
 
     // Ordenar por deletedAt DESC quando buscar deletados, senão por data DESC
     query += deletadosParam === 'true' 
-      ? ' ORDER BY deletedAt DESC' 
-      : ' ORDER BY data DESC';
+      ? ' ORDER BY vendas.deletedAt DESC' 
+      : ' ORDER BY vendas.data DESC';
 
-    vendas = db.prepare(query).all(...params) as Venda[];
+    vendas = db.prepare(query).all(...params) as any[];
 
     return NextResponse.json({ vendas });
   } catch (error) {
@@ -91,7 +113,7 @@ export async function POST(request: NextRequest) {
     // 1. VERIFICAR ESTOQUE
     const estoqueTotal = db
       .prepare(
-        'SELECT COALESCE(SUM(quantidadeDisponivel), 0) as total FROM compras WHERE produtoId = ?'
+        'SELECT COALESCE(SUM(quantidadeDisponivel), 0) as total FROM compras WHERE produtoId = ? AND deletedAt IS NULL'
       )
       .get(data.produtoId!) as { total: number } | undefined;
 
@@ -114,7 +136,7 @@ export async function POST(request: NextRequest) {
       const comprasDisponiveis = db
         .prepare(
           `SELECT * FROM compras 
-           WHERE produtoId = ? AND quantidadeDisponivel > 0 
+           WHERE produtoId = ? AND quantidadeDisponivel > 0 AND deletedAt IS NULL
            ORDER BY dataCompra ASC`
         )
         .all(data.produtoId!) as any[];

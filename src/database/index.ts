@@ -32,7 +32,7 @@ export function getDb(): Database.Database {
 
     CREATE TABLE IF NOT EXISTS produtos_prod (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nome TEXT NOT NULL,
+      nome TEXT NOT NULL UNIQUE,
       fornecedor TEXT,
       quantidade INTEGER NOT NULL DEFAULT 0,
       deletedAt INTEGER,
@@ -127,6 +127,29 @@ export function getDb(): Database.Database {
   } catch (error) {
     // Ignorar erro se colunas já existirem
     console.warn('Erro ao adicionar colunas (podem já existir):', error);
+  }
+
+  // Adicionar coluna deletedAt em compras se não existir
+  try {
+    const columnsCompras = db.prepare("PRAGMA table_info(compras)").all() as any[];
+    const columnNamesCompras = columnsCompras.map((col) => col.name);
+
+    if (!columnNamesCompras.includes('deletedAt')) {
+      db.exec('ALTER TABLE compras ADD COLUMN deletedAt INTEGER');
+    }
+  } catch (error) {
+    console.warn('Erro ao adicionar coluna deletedAt em compras:', error);
+  }
+
+  // Criar índice único para nome de produtos_prod (se não existir)
+  try {
+    db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_produtos_prod_nome 
+      ON produtos_prod(nome) 
+      WHERE deletedAt IS NULL;
+    `);
+  } catch (error) {
+    console.warn('Erro ao criar índice único em produtos_prod:', error);
   }
 
   return db;

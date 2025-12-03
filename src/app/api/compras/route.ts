@@ -26,13 +26,13 @@ export async function GET(request: NextRequest) {
       compras = db
         .prepare(
           `SELECT * FROM compras 
-           WHERE produtoId = ? 
+           WHERE deletedAt IS NULL AND produtoId = ? 
            ORDER BY dataCompra DESC`
         )
         .all(produtoId) as Compra[];
     } else {
       compras = db
-        .prepare('SELECT * FROM compras ORDER BY dataCompra DESC')
+        .prepare('SELECT * FROM compras WHERE deletedAt IS NULL ORDER BY dataCompra DESC')
         .all() as Compra[];
     }
 

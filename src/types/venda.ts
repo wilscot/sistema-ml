@@ -46,4 +46,5 @@ export interface VendaML {
   taxaVenda: number;
   taxaEnvio: number;
   total: number;
+  produtoId?: number; // Opcional: pode ser fornecido via mapeamento manual
 }

@@ -11,11 +11,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { calcularCustoUnitario } from '@/lib/calculators';
 import { validarCompra } from '@/lib/validators';
 import type { CompraInput } from '@/types/compra';
 import type { ProdutoProd } from '@/types/produto';
+import ProdutoQuickCreateDialog from './ProdutoQuickCreateDialog';
 
 interface CompraFormProps {
   onSuccess: () => void;
@@ -27,6 +29,8 @@ export function CompraForm({ onSuccess }: CompraFormProps) {
   const [loadingCotacao, setLoadingCotacao] = useState(false);
   const [loadingProdutos, setLoadingProdutos] = useState(true);
   const [produtos, setProdutos] = useState<ProdutoProd[]>([]);
+  const [produtosAtualizados, setProdutosAtualizados] = useState<ProdutoProd[]>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const [produtoId, setProdutoId] = useState<string>('');
   const [precoUSD, setPrecoUSD] = useState<number | ''>('');
@@ -45,7 +49,9 @@ export function CompraForm({ onSuccess }: CompraFormProps) {
         const response = await fetch('/api/produtos?modo=PROD');
         if (!response.ok) throw new Error('Erro ao buscar produtos');
         const data = await response.json();
-        setProdutos(data.produtos || []);
+        const produtosList = data.produtos || [];
+        setProdutos(produtosList);
+        setProdutosAtualizados(produtosList);
       } catch (error) {
         console.error('Erro ao buscar produtos:', error);
         toast({
@@ -190,7 +196,13 @@ export function CompraForm({ onSuccess }: CompraFormProps) {
         <Label htmlFor="produtoId">Produto PROD *</Label>
         <Select
           value={produtoId}
-          onValueChange={setProdutoId}
+          onValueChange={(value) => {
+            if (value === '__new__') {
+              setDialogOpen(true);
+            } else {
+              setProdutoId(value);
+            }
+          }}
           required
           disabled={loadingProdutos}
         >
@@ -198,14 +210,60 @@ export function CompraForm({ onSuccess }: CompraFormProps) {
             <SelectValue placeholder={loadingProdutos ? 'Carregando...' : 'Selecione um produto'} />
           </SelectTrigger>
           <SelectContent>
-            {produtos.map((produto) => (
-              <SelectItem key={produto.id} value={produto.id.toString()}>
-                {produto.nome}
-              </SelectItem>
-            ))}
+            {/* OPÇÃO CADASTRAR NOVO (PRIMEIRA LINHA) */}
+            <SelectItem value="__new__" className="font-medium text-primary">
+              <div className="flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                <span>Cadastrar novo produto</span>
+              </div>
+            </SelectItem>
+            
+            {/* SEPARADOR */}
+            <div className="border-t my-1" />
+            
+            {/* PRODUTOS EXISTENTES */}
+            {produtosAtualizados
+              .filter((p) => !p.deletedAt)
+              .map((produto) => (
+                <SelectItem key={produto.id} value={produto.id.toString()}>
+                  {produto.nome}
+                  {produto.fornecedor && (
+                    <span className="text-muted-foreground text-xs ml-2">
+                      ({produto.fornecedor})
+                    </span>
+                  )}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
       </div>
+
+      {/* DIALOG DE CRIAÇÃO RÁPIDA */}
+      <ProdutoQuickCreateDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onSuccess={(novoProduto) => {
+          // Adicionar produto à lista local
+          const novoProdutoCompleto: ProdutoProd = {
+            id: novoProduto.id,
+            nome: novoProduto.nome,
+            tipo: 'PROD',
+            quantidade: 0,
+            deletedAt: null,
+            fornecedor: null,
+            createdAt: Math.floor(Date.now() / 1000),
+            updatedAt: Math.floor(Date.now() / 1000),
+          };
+          
+          setProdutosAtualizados([
+            ...produtosAtualizados,
+            novoProdutoCompleto,
+          ]);
+          
+          // Selecionar produto recém-criado
+          setProdutoId(novoProduto.id.toString());
+        }}
+      />
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">

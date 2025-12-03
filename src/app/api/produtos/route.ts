@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
       const result = stmt.run(
         produtoData.nome,
         produtoData.fornecedor || null,
-        produtoData.quantidade || 0,
+        0, // Quantidade sempre começa em 0 (gerenciada por compras)
         now,
         now
       );
@@ -148,8 +148,17 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({ produto }, { status: 201 });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao criar produto:', error);
+    
+    // Detectar erro de UNIQUE constraint
+    if (error.message?.includes('UNIQUE') || error.code === 'SQLITE_CONSTRAINT' || error.message?.includes('constraint')) {
+      return NextResponse.json(
+        { error: 'Já existe um produto com este nome' },
+        { status: 400 }
+      );
+    }
+    
     return NextResponse.json(
       { error: 'Erro ao criar produto' },
       { status: 500 }
