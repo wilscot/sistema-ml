@@ -146,35 +146,43 @@ export default function VendaList({ vendas, produtos, loading, onDelete }: Venda
 
               return (
                 <tr key={venda.id} className="hover:bg-muted/50 transition-colors">
-                  <td className="px-4 py-3 text-sm text-foreground">
+                  <td className="px-4 py-3 text-sm">
                     {venda.numeroVenda ? (
                       <a
                         href={`https://www.mercadolivre.com.br/vendas/${venda.numeroVenda}/detalhe#source=excel`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                        className="text-primary hover:underline font-mono text-xs"
+                        title="Abrir venda no Mercado Livre"
                       >
                         {venda.numeroVenda}
                       </a>
                     ) : (
-                      <span className="text-muted-foreground">-</span>
+                      <span className="text-muted-foreground text-xs">-</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-foreground">
                     {produto?.nome || `Produto #${venda.produtoId}`}
                   </td>
-                  <td className="px-4 py-3 text-sm text-foreground">
-                    {venda.nomeComprador || venda.cpfComprador ? (
-                      <div>
-                        <div className="font-medium">{venda.nomeComprador || '-'}</div>
+                  <td className="px-4 py-3 text-sm">
+                    {venda.nomeComprador ? (
+                      <div className="flex flex-col">
+                        <span className="text-foreground font-medium">
+                          {venda.nomeComprador}
+                        </span>
                         {venda.cpfComprador && (
-                          <div className="text-xs text-muted-foreground">
-                            {formatCPF(venda.cpfComprador)}
-                          </div>
+                          <span className="text-xs text-muted-foreground font-mono">
+                            CPF: {venda.cpfComprador.replace(
+                              /(\d{3})(\d{3})(\d{3})(\d{2})/,
+                              '$1.$2.$3-$4'
+                            )}
+                          </span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-muted-foreground">-</span>
+                      <span className="text-muted-foreground text-xs">
+                        Venda manual
+                      </span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-center text-sm text-foreground">

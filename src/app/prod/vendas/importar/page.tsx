@@ -428,53 +428,79 @@ export default function ImportarVendasPage() {
         </div>
       )}
 
-      {/* Tabela de Erros Detalhados */}
-      {errosDetalhados.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-red-600">
-              Erros Detalhados ({errosDetalhados.length})
-            </h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={baixarLogErros}
-              className="gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Baixar Log
-            </Button>
+      {/* Resultado da Importação - Sucesso */}
+      {parseResult && !importando && errosDetalhados.length === 0 && (
+        <div className="mb-6 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+            <h3 className="text-sm font-medium text-green-800 dark:text-green-200">
+              Importação concluída com sucesso!
+            </h3>
           </div>
+        </div>
+      )}
 
-          <div className="rounded-md border border-red-200 overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-20">Linha</TableHead>
-                  <TableHead>Nº Venda</TableHead>
-                  <TableHead className="min-w-[200px]">Produto</TableHead>
-                  <TableHead className="min-w-[150px]">Motivo</TableHead>
-                  <TableHead className="min-w-[250px]">Detalhes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {errosDetalhados.map((erro, index) => (
-                  <TableRow key={index} className="hover:bg-red-50 dark:hover:bg-red-900/10">
-                    <TableCell className="font-medium">{erro.linha}</TableCell>
-                    <TableCell>{erro.numeroVenda}</TableCell>
-                    <TableCell className="max-w-xs truncate" title={erro.titulo}>
+      {/* Erros Detalhados */}
+      {errosDetalhados.length > 0 && (
+        <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-start gap-2">
+              <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-medium text-red-800 dark:text-red-200 mb-2">
+                  Erros de Importação ({errosDetalhados.length})
+                </h3>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const csv = [
+                  'Linha,Nº Venda,Produto,Motivo,Detalhes',
+                  ...errosDetalhados.map(e => 
+                    `${e.linha},"${e.numeroVenda}","${e.titulo}","${e.motivo}","${e.detalhes}"`
+                  )
+                ].join('\n');
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `erros-importacao-${Date.now()}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+            >
+              Baixar Log CSV
+            </button>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-red-100 dark:bg-red-900/30">
+                <tr>
+                  <th className="px-3 py-2 text-left text-xs font-medium">Linha</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium">Nº Venda</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium">Produto</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium">Motivo</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium">Detalhes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-red-200 dark:divide-red-800">
+                {errosDetalhados.map((erro, i) => (
+                  <tr key={i} className="text-red-700 dark:text-red-300">
+                    <td className="px-3 py-2">{erro.linha}</td>
+                    <td className="px-3 py-2 font-mono text-xs">{erro.numeroVenda}</td>
+                    <td className="px-3 py-2 max-w-xs truncate" title={erro.titulo}>
                       {erro.titulo}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="destructive">{erro.motivo}</Badge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
+                    </td>
+                    <td className="px-3 py-2 font-medium">{erro.motivo}</td>
+                    <td className="px-3 py-2 text-xs max-w-md truncate" title={erro.detalhes}>
                       {erro.detalhes}
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 ))}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           </div>
         </div>
       )}

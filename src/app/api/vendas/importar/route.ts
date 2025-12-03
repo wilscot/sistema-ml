@@ -194,9 +194,11 @@ async function processarVenda(
       throw transactionError;
     }
   } catch (error: any) {
+    const errorMessage = error.message || 'Erro ao processar venda';
+    const errorStack = error.stack || String(error);
     return {
       success: false,
-      error: error.message || 'Erro ao processar venda',
+      error: `${errorMessage} | Stack: ${errorStack}`,
     };
   }
 }
@@ -271,17 +273,25 @@ export async function POST(request: NextRequest) {
         if (processamento.success) {
           result.importadas++;
         } else {
+          // Determinar motivo do erro
+          let motivo = 'Erro ao processar venda';
+          if (processamento.error?.includes('Estoque insuficiente')) {
+            motivo = 'Estoque insuficiente';
+          } else if (processamento.error?.includes('Configurações') || processamento.error?.includes('configuracoes')) {
+            motivo = 'Configuração não encontrada';
+          } else if (processamento.error?.includes('compra disponível') || processamento.error?.includes('Nenhuma compra')) {
+            motivo = 'Nenhuma compra disponível';
+          } else if (processamento.error?.includes('FIFO') || processamento.error?.includes('quantidade restante')) {
+            motivo = 'Erro FIFO';
+          } else if (processamento.error?.includes('Dados inválidos')) {
+            motivo = 'Dados inválidos';
+          }
+
           const erroDetalhado: ErroDetalhado = {
             linha,
             numeroVenda: vendaML.numeroVenda || 'N/A',
             titulo: vendaML.tituloAnuncio || 'N/A',
-            motivo: processamento.error?.includes('Estoque insuficiente')
-              ? 'Estoque insuficiente'
-              : processamento.error?.includes('Configurações')
-              ? 'Configuração não encontrada'
-              : processamento.error?.includes('compra disponível')
-              ? 'Nenhuma compra disponível'
-              : 'Erro ao processar venda',
+            motivo,
             detalhes: processamento.error || 'Erro desconhecido',
           };
           result.errosDetalhados.push(erroDetalhado);
@@ -290,15 +300,17 @@ export async function POST(request: NextRequest) {
           );
         }
       } catch (error: any) {
+        const errorMessage = error.message || 'Erro desconhecido';
+        const errorStack = error.stack || String(error);
         result.errosDetalhados.push({
           linha,
           numeroVenda: vendaML.numeroVenda || 'N/A',
           titulo: vendaML.tituloAnuncio || 'N/A',
           motivo: 'Erro ao processar',
-          detalhes: error.message || 'Erro desconhecido',
+          detalhes: `Erro completo: ${errorStack}`,
         });
         result.erros.push(
-          `Venda #${vendaML.numeroVenda}: ${error.message || 'Erro ao processar'}`
+          `Venda #${vendaML.numeroVenda}: ${errorMessage}`
         );
       }
     }

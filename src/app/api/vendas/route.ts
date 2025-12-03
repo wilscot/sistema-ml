@@ -54,7 +54,10 @@ export async function GET(request: NextRequest) {
       params.push(startOfMonth, endOfMonth);
     }
 
-    query += ' ORDER BY data DESC';
+    // Ordenar por deletedAt DESC quando buscar deletados, senão por data DESC
+    query += deletadosParam === 'true' 
+      ? ' ORDER BY deletedAt DESC' 
+      : ' ORDER BY data DESC';
 
     vendas = db.prepare(query).all(...params) as Venda[];
 
