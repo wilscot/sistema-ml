@@ -60,7 +60,8 @@ export default function VendasPage() {
       const vendasRes = await fetch('/api/vendas');
       if (vendasRes.ok) {
         const data = await vendasRes.json();
-        setVendas(data.vendas || []);
+        const vendasOrdenadas = (data.vendas || []).sort((a: Venda, b: Venda) => b.data - a.data);
+        setVendas(vendasOrdenadas);
       }
 
       // Buscar produtos PROD

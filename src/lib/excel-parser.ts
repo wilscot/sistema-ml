@@ -29,6 +29,7 @@ const STATUS_VALIDOS = [
   'Venda entregue',
   'A caminho',
   'Reclamação encerrada com reembolso parcial',
+  'Combine a entrega',
 ];
 
 // Função para verificar se status é válido
@@ -270,7 +271,19 @@ export async function parseExcelML(file: File): Promise<ParseResult> {
         const estado = String(linha[2] || '').trim();
         const descricaoStatus = String(linha[3] || '').trim();
         const unidades = parseNumeroBrasileiro(linha[6] || 0);
-        const precoUnitario = parseNumeroBrasileiro(linha[7] || 0);
+        
+        // Tentar Col H (Receita por produtos) primeiro
+        let receitaProdutos = parseNumeroBrasileiro(linha[7] || 0);
+        
+        // Se Col H estiver vazia/zero, usar Col Y (Preço unitário)
+        if (receitaProdutos === 0) {
+          const precoUnitarioML = parseNumeroBrasileiro(linha[24] || 0);
+          receitaProdutos = precoUnitarioML;
+          
+          console.log(`Linha ${numeroLinha}: Col H vazia, usando Col Y (Preco unitario): ${precoUnitarioML}`);
+        }
+        
+        const precoUnitario = receitaProdutos;
         const taxaVenda = parseNumeroBrasileiro(linha[10] || 0);
         const receitaEnvio = parseNumeroBrasileiro(linha[11] || 0);
         const taxaEnvio = parseNumeroBrasileiro(linha[12] || 0);
@@ -363,6 +376,22 @@ export async function parseExcelML(file: File): Promise<ParseResult> {
         // Normalizar tipo de anúncio
         const tipoAnuncio = normalizarTipoAnuncio(tipoAnuncioStr);
 
+        // Col Q (index 16) = Total liquido ja calculado pelo ML
+        // Este valor JA inclui:
+        // - Receita produtos
+        // - Receita envio (quando cliente paga)
+        // - MENOS tarifas ML
+        // - MENOS envios
+        // E o valor LIQUIDO que voce recebeu
+        const totalLiquidoML = total;
+        const valorRecebidoVenda = totalLiquidoML > 0 ? totalLiquidoML : receita * 0.885;
+
+        // Debug log
+        console.log(`Venda ${numeroVenda}:`);
+        console.log(`   Preco anuncio: R$ ${precoUnitario.toFixed(2)}`);
+        console.log(`   Total liquido ML (Col Q): R$ ${totalLiquidoML.toFixed(2)}`);
+        console.log(`   Valor que sera usado: R$ ${valorRecebidoVenda.toFixed(2)}`);
+
         // Criar objeto VendaML
         const venda: VendaML = {
           numeroVenda,
@@ -381,6 +410,7 @@ export async function parseExcelML(file: File): Promise<ParseResult> {
           taxaVenda,
           taxaEnvio,
           total,
+          valorRecebidoVenda,
         };
 
         result.vendas.push(venda);

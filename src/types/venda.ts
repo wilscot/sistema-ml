@@ -46,5 +46,6 @@ export interface VendaML {
   taxaVenda: number;
   taxaEnvio: number;
   total: number;
+  valorRecebidoVenda: number; // Col Q - Total liquido ja calculado pelo ML
   produtoId?: number; // Opcional: pode ser fornecido via mapeamento manual
 }

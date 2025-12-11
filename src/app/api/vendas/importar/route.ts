@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getDbInstance } from '@/db/index';
-import {
-  calcularReceita,
-  calcularTaxaML,
-  calcularLucroLiquido,
-} from '@/lib/calculators';
 import type { VendaML } from '@/types/venda';
 import type { ProdutoProd } from '@/types/produto';
 
@@ -120,41 +115,31 @@ async function processarVenda(
       }
 
       // 5. CALCULAR VALORES
-      const config = db
-        .prepare('SELECT * FROM configuracoes_prod LIMIT 1')
-        .get() as any;
-
-      if (!config) {
-        db.exec('ROLLBACK');
-        return {
-          success: false,
-          error: 'Configurações PROD não encontradas',
-        };
-      }
-
-      const taxaPercent =
-        vendaML.tipoAnuncio === 'CLASSICO'
-          ? config.taxaClassico
-          : config.taxaPremium;
-
-      // Usar receitaEnvio como freteCobrado (do Excel) - é um CUSTO
+      // Usar receitaEnvio como freteCobrado (do Excel)
       const freteCobrado = vendaML.receitaEnvio || 0;
-
-      const valorTotalVenda = vendaML.precoUnitario * vendaML.unidades;
-      const taxaML = calcularTaxaML(valorTotalVenda, taxaPercent);
 
       // Custo total unitário (média ponderada das compras usadas)
       const custoTotalUnitario = custoTotalAcumulado / vendaML.unidades;
       const custoTotal = Number(custoTotalUnitario.toFixed(2));
 
-      // Lucro líquido: receita - custo - taxa - frete (frete é CUSTO)
-      const lucroLiquido = calcularLucroLiquido(
-        vendaML.precoUnitario,
-        vendaML.unidades,
-        freteCobrado, // Frete PAGO pelo vendedor (é um custo)
-        custoTotal,
-        taxaML
-      );
+      // USAR Col Q (valorRecebidoVenda) - valor liquido JA calculado pelo ML
+      // Este valor JA inclui todas as deducoes (taxas, envios, etc)
+      const valorRecebido = vendaML.valorRecebidoVenda || vendaML.total || 0;
+      
+      // Taxa ML = diferenca entre valor bruto e valor recebido (para registro)
+      const valorBruto = vendaML.precoUnitario * vendaML.unidades;
+      const taxaML = Number((valorBruto - valorRecebido + freteCobrado).toFixed(2));
+
+      // Lucro liquido: valor recebido - custo total dos produtos
+      // NAO subtrair taxaML pois valorRecebido JA tem as taxas descontadas
+      const custoTotalProdutos = custoTotal * vendaML.unidades;
+      const lucroLiquido = Number((valorRecebido - custoTotalProdutos).toFixed(2));
+
+      console.log(`Venda ${vendaML.numeroVenda}:`);
+      console.log(`   Valor bruto: R$ ${valorBruto.toFixed(2)}`);
+      console.log(`   Valor recebido (Col Q): R$ ${valorRecebido.toFixed(2)}`);
+      console.log(`   Custo produtos: R$ ${custoTotalProdutos.toFixed(2)}`);
+      console.log(`   Lucro liquido: R$ ${lucroLiquido.toFixed(2)}`);
 
       // 6. INSERIR VENDA
       // vendaML.data pode vir como Date, string ISO ou timestamp (número)

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Trash2, Search, X } from 'lucide-react';
 import EmptyState from './EmptyState';
 import LoadingSpinner from './LoadingSpinner';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +23,7 @@ interface VendaListProps {
 export default function VendaList({ vendas, produtos, loading, onDelete }: VendaListProps) {
   const { toast } = useToast();
   const [deletando, setDeletando] = useState<number | null>(null);
+  const [filtroProduto, setFiltroProduto] = useState('');
 
   const handleDelete = async (id: number) => {
     if (!confirm('Tem certeza que deseja deletar esta venda?\n\nAVISO: O estoque NÃO será restaurado automaticamente!')) {
@@ -75,15 +76,27 @@ export default function VendaList({ vendas, produtos, loading, onDelete }: Venda
     );
   }
 
-  // Calcular totais
-  const totalFaturamento = vendas.reduce(
+  // Mapa de produtos para lookup rápido
+  const produtosMap = new Map(produtos.map((p) => [p.id, p]));
+
+  // Filtrar vendas por nome do produto
+  const vendasFiltradas = useMemo(() => {
+    if (!filtroProduto.trim()) return vendas;
+    
+    const filtroLower = filtroProduto.toLowerCase().trim();
+    return vendas.filter((venda) => {
+      const produto = produtosMap.get(venda.produtoId);
+      const nomeProduto = (venda as any).produtoNome || produto?.nome || '';
+      return nomeProduto.toLowerCase().includes(filtroLower);
+    });
+  }, [vendas, filtroProduto, produtosMap]);
+
+  // Calcular totais (das vendas filtradas)
+  const totalFaturamento = vendasFiltradas.reduce(
     (acc, v) => acc + v.precoVenda * v.quantidadeVendida,
     0
   );
-  const totalLucro = vendas.reduce((acc, v) => acc + v.lucroLiquido, 0);
-
-  // Mapa de produtos para lookup rápido
-  const produtosMap = new Map(produtos.map((p) => [p.id, p]));
+  const totalLucro = vendasFiltradas.reduce((acc, v) => acc + v.lucroLiquido, 0);
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
@@ -106,6 +119,34 @@ export default function VendaList({ vendas, produtos, loading, onDelete }: Venda
 
   return (
     <div>
+      {/* Campo de filtro por produto */}
+      <div className="mb-4">
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Filtrar por nome do produto..."
+            value={filtroProduto}
+            onChange={(e) => setFiltroProduto(e.target.value)}
+            className="w-full pl-10 pr-10 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          />
+          {filtroProduto && (
+            <button
+              onClick={() => setFiltroProduto('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              title="Limpar filtro"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        {filtroProduto && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Mostrando {vendasFiltradas.length} de {vendas.length} vendas
+          </p>
+        )}
+      </div>
+
       <div className="overflow-x-auto border border-border rounded-lg">
         <table className="w-full">
           <thead className="bg-muted">
@@ -140,7 +181,14 @@ export default function VendaList({ vendas, produtos, loading, onDelete }: Venda
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {vendas.map((venda) => {
+            {vendasFiltradas.length === 0 && filtroProduto && (
+              <tr>
+                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
+                  Nenhuma venda encontrada para "{filtroProduto}"
+                </td>
+              </tr>
+            )}
+            {vendasFiltradas.map((venda) => {
               const produto = produtosMap.get(venda.produtoId);
               const isLucroPositivo = venda.lucroLiquido > 0;
 
