@@ -37,9 +37,13 @@ next-env.d.ts
 db/data.db
 db/data.db-shm
 db/data.db-wal
-*.db
 *.db-shm
 *.db-wal
+# Permitir commit do banco principal
+!data/sistema-ml.db
+# Ignorar backups e outros bancos
+data/*.backup*.db
+data/sistema-ml-backup*.db
 
 # IDE
 .vscode
@@ -52,6 +56,8 @@ db/data.db-wal
 # Backup
 old-system/
 *.backup
+sistema-ml-transfer.zip
+temp-extract/
 
 # Turbo
 .turbo
