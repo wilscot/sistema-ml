@@ -13,6 +13,9 @@
     "db:generate": "drizzle-kit generate:sqlite",
     "db:migrate": "drizzle-kit migrate",
     "db:setup": "tsx scripts/setup-db.ts",
+    "db:corrigir-estoque": "tsx src/scripts/corrigir-estoque-retroativo.ts",
+    "db:corrigir-pontual": "tsx src/scripts/corrigir-estoque-pontual.ts",
+    "db:diagnosticar": "tsx src/scripts/diagnosticar-estoque.ts",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

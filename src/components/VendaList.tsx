@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Trash2, Search, X } from 'lucide-react';
+import { Trash2, Search, X, CheckSquare, Square } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import EmptyState from './EmptyState';
 import LoadingSpinner from './LoadingSpinner';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +25,23 @@ export default function VendaList({ vendas, produtos, loading, onDelete }: Venda
   const { toast } = useToast();
   const [deletando, setDeletando] = useState<number | null>(null);
   const [filtroProduto, setFiltroProduto] = useState('');
+  const [vendasSelecionadas, setVendasSelecionadas] = useState<Set<number>>(new Set());
+  const [deletandoMultiplas, setDeletandoMultiplas] = useState(false);
+
+  // Mapa de produtos para lookup rapido
+  const produtosMap = useMemo(() => new Map(produtos.map((p) => [p.id, p])), [produtos]);
+
+  // Filtrar vendas por nome do produto
+  const vendasFiltradas = useMemo(() => {
+    if (!filtroProduto.trim()) return vendas;
+    
+    const filtroLower = filtroProduto.toLowerCase().trim();
+    return vendas.filter((venda) => {
+      const produto = produtosMap.get(venda.produtoId);
+      const nomeProduto = (venda as any).produtoNome || produto?.nome || '';
+      return nomeProduto.toLowerCase().includes(filtroLower);
+    });
+  }, [vendas, filtroProduto, produtosMap]);
 
   const handleDelete = async (id: number) => {
     if (!confirm('Tem certeza que deseja deletar esta venda?\n\nAVISO: O estoque NÃO será restaurado automaticamente!')) {
@@ -63,6 +81,65 @@ export default function VendaList({ vendas, produtos, loading, onDelete }: Venda
     }
   };
 
+  const toggleVenda = (id: number) => {
+    const novaSelecao = new Set(vendasSelecionadas);
+    if (novaSelecao.has(id)) {
+      novaSelecao.delete(id);
+    } else {
+      novaSelecao.add(id);
+    }
+    setVendasSelecionadas(novaSelecao);
+  };
+
+  const toggleTodas = () => {
+    if (vendasSelecionadas.size === vendasFiltradas.length && vendasFiltradas.length > 0) {
+      setVendasSelecionadas(new Set());
+    } else {
+      setVendasSelecionadas(new Set(vendasFiltradas.map(v => v.id)));
+    }
+  };
+
+  const deletarSelecionadas = async () => {
+    if (vendasSelecionadas.size === 0) return;
+    
+    const confirmacao = confirm(
+      `Deseja realmente excluir ${vendasSelecionadas.size} venda(s) selecionada(s)?\n\nO estoque sera devolvido aos produtos.`
+    );
+    
+    if (!confirmacao) return;
+    
+    setDeletandoMultiplas(true);
+    
+    try {
+      const promises = Array.from(vendasSelecionadas).map(id =>
+        fetch(`/api/vendas/${id}`, { method: 'DELETE' })
+      );
+      
+      await Promise.all(promises);
+      
+      toast({
+        title: 'Vendas deletadas',
+        description: `${vendasSelecionadas.size} venda(s) deletada(s) com sucesso`,
+        variant: 'default',
+      });
+      
+      setVendasSelecionadas(new Set());
+      
+      if (onDelete) {
+        onDelete();
+      }
+    } catch (error) {
+      console.error('Erro ao deletar vendas:', error);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao deletar algumas vendas',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletandoMultiplas(false);
+    }
+  };
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -75,21 +152,6 @@ export default function VendaList({ vendas, produtos, loading, onDelete }: Venda
       />
     );
   }
-
-  // Mapa de produtos para lookup rápido
-  const produtosMap = new Map(produtos.map((p) => [p.id, p]));
-
-  // Filtrar vendas por nome do produto
-  const vendasFiltradas = useMemo(() => {
-    if (!filtroProduto.trim()) return vendas;
-    
-    const filtroLower = filtroProduto.toLowerCase().trim();
-    return vendas.filter((venda) => {
-      const produto = produtosMap.get(venda.produtoId);
-      const nomeProduto = (venda as any).produtoNome || produto?.nome || '';
-      return nomeProduto.toLowerCase().includes(filtroLower);
-    });
-  }, [vendas, filtroProduto, produtosMap]);
 
   // Calcular totais (das vendas filtradas)
   const totalFaturamento = vendasFiltradas.reduce(
@@ -147,10 +209,50 @@ export default function VendaList({ vendas, produtos, loading, onDelete }: Venda
         )}
       </div>
 
+      {/* Barra de seleção */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">
+            {vendasSelecionadas.size > 0 
+              ? `${vendasSelecionadas.size} selecionada(s)`
+              : `${vendasFiltradas.length} venda(s)`
+            }
+          </span>
+        </div>
+        
+        {vendasSelecionadas.size > 0 && (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={deletarSelecionadas}
+            disabled={deletandoMultiplas}
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            {deletandoMultiplas 
+              ? 'Deletando...' 
+              : `Excluir ${vendasSelecionadas.size} selecionada(s)`
+            }
+          </Button>
+        )}
+      </div>
+
       <div className="overflow-x-auto border border-border rounded-lg">
         <table className="w-full">
           <thead className="bg-muted">
             <tr>
+              <th className="px-4 py-3 text-center w-12">
+                <button
+                  onClick={toggleTodas}
+                  className="hover:opacity-70 transition-opacity"
+                  title={vendasSelecionadas.size === vendasFiltradas.length && vendasFiltradas.length > 0 ? 'Desmarcar todas' : 'Selecionar todas'}
+                >
+                  {vendasSelecionadas.size === vendasFiltradas.length && vendasFiltradas.length > 0 ? (
+                    <CheckSquare className="w-5 h-5 text-primary" />
+                  ) : (
+                    <Square className="w-5 h-5 text-muted-foreground" />
+                  )}
+                </button>
+              </th>
               <th className="px-4 py-3 text-left text-sm font-medium text-muted-foreground">
                 Nº Venda
               </th>
@@ -183,7 +285,7 @@ export default function VendaList({ vendas, produtos, loading, onDelete }: Venda
           <tbody className="divide-y divide-border">
             {vendasFiltradas.length === 0 && filtroProduto && (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
                   Nenhuma venda encontrada para "{filtroProduto}"
                 </td>
               </tr>
@@ -193,7 +295,24 @@ export default function VendaList({ vendas, produtos, loading, onDelete }: Venda
               const isLucroPositivo = venda.lucroLiquido > 0;
 
               return (
-                <tr key={venda.id} className="hover:bg-muted/50 transition-colors">
+                <tr 
+                  key={venda.id} 
+                  className={`hover:bg-muted/50 transition-colors ${
+                    vendasSelecionadas.has(venda.id) ? 'bg-primary/10' : ''
+                  }`}
+                >
+                  <td className="px-4 py-3 text-center">
+                    <button
+                      onClick={() => toggleVenda(venda.id)}
+                      className="hover:opacity-70 transition-opacity"
+                    >
+                      {vendasSelecionadas.has(venda.id) ? (
+                        <CheckSquare className="w-5 h-5 text-primary" />
+                      ) : (
+                        <Square className="w-5 h-5 text-muted-foreground" />
+                      )}
+                    </button>
+                  </td>
                   <td className="px-4 py-3 text-sm">
                     {venda.numeroVenda ? (
                       <a

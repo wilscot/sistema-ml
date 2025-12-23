@@ -50,7 +50,9 @@ export default function LixeiraProdPage() {
       const response = await fetch('/api/produtos?modo=PROD');
       if (response.ok) {
         const data = await response.json();
-        const map = new Map((data.produtos || []).map((p: ProdutoProd) => [p.id, p]));
+        const map = new Map<number, ProdutoProd>(
+          (data.produtos || []).map((p: ProdutoProd) => [p.id, p] as [number, ProdutoProd])
+        );
         setProdutosMap(map);
       }
     } catch (err) {
@@ -87,6 +89,10 @@ export default function LixeiraProdPage() {
   };
 
   const handleRestoreVenda = () => {
+    buscarVendas();
+  };
+
+  const handleDeletePermanentVenda = () => {
     buscarVendas();
   };
 
@@ -146,6 +152,7 @@ export default function LixeiraProdPage() {
           vendas={vendas}
           produtos={Array.from(produtosMap.values())}
           onRestore={handleRestoreVenda}
+          onDeletePermanent={handleDeletePermanentVenda}
           loading={false}
         />
       )}

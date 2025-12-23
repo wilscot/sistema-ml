@@ -22,7 +22,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Trash2, CheckSquare, Square } from 'lucide-react';
 import EmptyState from './EmptyState';
 import LoadingSpinner from './LoadingSpinner';
 import type { Venda } from '@/types/venda';
@@ -32,6 +32,7 @@ interface VendaLixeiraListProps {
   vendas: Venda[];
   produtos: ProdutoProd[];
   onRestore: () => void;
+  onDeletePermanent?: () => void;
   loading?: boolean;
 }
 
@@ -39,10 +40,14 @@ export function VendaLixeiraList({
   vendas,
   produtos,
   onRestore,
+  onDeletePermanent,
   loading = false,
 }: VendaLixeiraListProps) {
   const { toast } = useToast();
   const [restaurandoId, setRestaurandoId] = useState<number | null>(null);
+  const [deletandoId, setDeletandoId] = useState<number | null>(null);
+  const [vendasSelecionadas, setVendasSelecionadas] = useState<Set<number>>(new Set());
+  const [deletandoMultiplas, setDeletandoMultiplas] = useState(false);
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
@@ -98,8 +103,104 @@ export function VendaLixeiraList({
     }
   };
 
+  const handleDeletePermanent = async (id: number, numeroVenda: string | null) => {
+    try {
+      setDeletandoId(id);
+      const response = await fetch(`/api/vendas/${id}/excluir-permanente`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao excluir venda');
+      }
+
+      toast({
+        title: 'Venda excluída',
+        description: `Venda ${numeroVenda || `#${id}`} foi excluída permanentemente.`,
+      });
+
+      if (onDeletePermanent) {
+        onDeletePermanent();
+      } else {
+        onRestore();
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message || 'Erro ao excluir venda',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletandoId(null);
+    }
+  };
+
   // Mapa de produtos para lookup rápido
   const produtosMap = new Map(produtos.map((p) => [p.id, p]));
+
+  // Toggle seleção individual
+  const toggleVenda = (id: number) => {
+    const novaSelecao = new Set(vendasSelecionadas);
+    if (novaSelecao.has(id)) {
+      novaSelecao.delete(id);
+    } else {
+      novaSelecao.add(id);
+    }
+    setVendasSelecionadas(novaSelecao);
+  };
+
+  // Toggle selecionar/desmarcar todas
+  const toggleTodas = () => {
+    if (vendasSelecionadas.size === vendas.length && vendas.length > 0) {
+      setVendasSelecionadas(new Set());
+    } else {
+      setVendasSelecionadas(new Set(vendas.map((v) => v.id)));
+    }
+  };
+
+  // Excluir múltiplas permanentemente
+  const excluirMultiplasPermanentemente = async () => {
+    if (vendasSelecionadas.size === 0) return;
+
+    setDeletandoMultiplas(true);
+
+    try {
+      const resultados = await Promise.allSettled(
+        Array.from(vendasSelecionadas).map(id =>
+          fetch(`/api/vendas/${id}/excluir-permanente`, {
+            method: 'DELETE'
+          })
+        )
+      );
+
+      const sucesso = resultados.filter(r => r.status === 'fulfilled').length;
+      const falha = resultados.filter(r => r.status === 'rejected').length;
+
+      if (sucesso > 0) {
+        toast({
+          title: 'Vendas excluídas',
+          description: `${sucesso} venda(s) excluída(s) permanentemente${falha > 0 ? `. ${falha} falharam.` : '.'}`,
+        });
+      }
+
+      setVendasSelecionadas(new Set());
+      
+      if (onDeletePermanent) {
+        onDeletePermanent();
+      } else {
+        onRestore();
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Erro',
+        description: error.message || 'Erro ao excluir vendas',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletandoMultiplas(false);
+    }
+  };
 
   if (loading) {
     return <LoadingSpinner />;
@@ -115,11 +216,85 @@ export function VendaLixeiraList({
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Nº Venda</TableHead>
+    <div>
+      {/* Barra de seleção múltipla */}
+      {vendasSelecionadas.size > 0 && (
+        <div className="flex items-center justify-between mb-4 p-3 bg-muted rounded-lg">
+          <span className="text-sm font-medium">
+            {vendasSelecionadas.size} venda(s) selecionada(s)
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setVendasSelecionadas(new Set())}
+            >
+              Limpar seleção
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={deletandoMultiplas}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  {deletandoMultiplas
+                    ? 'Excluindo...'
+                    : `Excluir ${vendasSelecionadas.size} permanentemente`
+                  }
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-red-600">
+                    Excluir {vendasSelecionadas.size} venda(s) permanentemente?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    <span className="font-bold text-red-600">ATENÇÃO: Esta ação é IRREVERSÍVEL!</span>
+                    <br /><br />
+                    {vendasSelecionadas.size} venda(s) serão excluídas permanentemente do banco de dados.
+                    <br /><br />
+                    O estoque NÃO será alterado.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={excluirMultiplasPermanentemente}
+                    disabled={deletandoMultiplas}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    {deletandoMultiplas
+                      ? 'Excluindo...'
+                      : 'Excluir Permanentemente'
+                    }
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-12 text-center">
+                <button
+                  onClick={toggleTodas}
+                  className="hover:opacity-70 transition-opacity"
+                  title={vendasSelecionadas.size === vendas.length && vendas.length > 0 ? 'Desmarcar todas' : 'Selecionar todas'}
+                >
+                  {vendasSelecionadas.size === vendas.length && vendas.length > 0 ? (
+                    <CheckSquare className="w-5 h-5 text-primary" />
+                  ) : (
+                    <Square className="w-5 h-5 text-muted-foreground" />
+                  )}
+                </button>
+              </TableHead>
+              <TableHead>Nº Venda</TableHead>
             <TableHead>Produto</TableHead>
             <TableHead>Comprador</TableHead>
             <TableHead className="text-center">Qtd</TableHead>
@@ -134,7 +309,22 @@ export function VendaLixeiraList({
           {vendas.map((venda) => {
             const produto = produtosMap.get(venda.produtoId);
             return (
-              <TableRow key={venda.id}>
+              <TableRow 
+                key={venda.id}
+                className={vendasSelecionadas.has(venda.id) ? 'bg-primary/10' : ''}
+              >
+                <TableCell className="text-center">
+                  <button
+                    onClick={() => toggleVenda(venda.id)}
+                    className="hover:opacity-70 transition-opacity"
+                  >
+                    {vendasSelecionadas.has(venda.id) ? (
+                      <CheckSquare className="w-5 h-5 text-primary" />
+                    ) : (
+                      <Square className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </button>
+                </TableCell>
                 <TableCell className="font-medium">
                   {venda.numeroVenda ? (
                     <a
@@ -186,44 +376,89 @@ export function VendaLixeiraList({
                   {venda.deletedAt ? formatDate(venda.deletedAt) : '-'}
                 </TableCell>
                 <TableCell className="text-right">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={restaurandoId === venda.id}
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          Restaurar venda {venda.numeroVenda || `#${venda.id}`}?
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          A venda será restaurada e voltará a aparecer na lista de vendas.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => handleRestore(venda.id, venda.numeroVenda)}
-                          disabled={restaurandoId === venda.id}
+                  <div className="flex gap-1 justify-end">
+                    {/* Restaurar */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={restaurandoId === venda.id || deletandoId === venda.id}
+                          title="Restaurar venda"
                         >
-                          {restaurandoId === venda.id
-                            ? 'Restaurando...'
-                            : 'Restaurar'}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                          <RotateCcw className="h-4 w-4 text-green-600" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            Restaurar venda {venda.numeroVenda || `#${venda.id}`}?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            A venda será restaurada e o estoque será removido do produto.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleRestore(venda.id, venda.numeroVenda)}
+                            disabled={restaurandoId === venda.id}
+                          >
+                            {restaurandoId === venda.id
+                              ? 'Restaurando...'
+                              : 'Restaurar'}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+
+                    {/* Excluir Permanente */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={restaurandoId === venda.id || deletandoId === venda.id}
+                          title="Excluir permanentemente"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle className="text-red-600">
+                            Excluir permanentemente?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            <span className="font-bold text-red-600">ATENÇÃO: Esta ação é IRREVERSÍVEL!</span>
+                            <br /><br />
+                            A venda {venda.numeroVenda || `#${venda.id}`} será excluída permanentemente do banco de dados.
+                            <br /><br />
+                            O estoque NÃO será alterado (já foi devolvido quando a venda foi movida para lixeira).
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDeletePermanent(venda.id, venda.numeroVenda)}
+                            disabled={deletandoId === venda.id}
+                            className="bg-red-600 hover:bg-red-700"
+                          >
+                            {deletandoId === venda.id
+                              ? 'Excluindo...'
+                              : 'Excluir Permanentemente'}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </TableCell>
               </TableRow>
             );
           })}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
     </div>
   );
 }

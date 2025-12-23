@@ -122,6 +122,45 @@ Se você ver erros sobre banco não encontrado:
 2. Verifique a versão do Node.js: `node --version` (deve ser >= 20)
 3. Limpe cache e reinstale: `rm -rf node_modules package-lock.json && npm install`
 
+## 🖥️ System Tray App
+
+Este projeto inclui um aplicativo de bandeja para facilitar o controle do servidor.
+
+### Instalação do Python
+
+1. Baixe Python 3.8+ em: https://www.python.org/downloads/
+2. Durante instalação: marque "Add Python to PATH"
+
+### Uso Rápido
+
+**Opção 1 - Rodar direto (sem gerar .exe):**
+
+```bash
+cd system-tray
+pip install -r requirements.txt
+python app.py
+```
+
+**Opção 2 - Gerar executável (.exe):**
+
+```bash
+cd system-tray
+build.bat
+```
+
+Executável ficará em: `system-tray/dist/SistemaML.exe`
+
+### Funcionalidades
+
+- Clique direito no ícone da bandeja
+- **Start**: Escolhe dev/prod e inicia
+- **Stop**: Para servidor e libera porta
+- **Restart**: Reinicia servidor
+- **Abrir**: Abre no navegador
+- **Sair**: Fecha tudo
+
+Mais detalhes em: `system-tray/README.md`
+
 ## 📝 Notas
 
 - O sistema cria automaticamente as tabelas na primeira execução

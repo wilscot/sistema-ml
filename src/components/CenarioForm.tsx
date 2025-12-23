@@ -75,10 +75,17 @@ export function CenarioForm({ produtoId, cenario, onSuccess }: CenarioFormProps)
     }
   }, [cenario]);
 
-  // Calcular preview de lucros
+  // Calcular preview de lucros e valores recebidos
   const calcularPreview = () => {
     if (!produto || !config || !precoVendaClassico || !precoVendaPremium) {
-      return { lucroClassico: 0, lucroPremium: 0 };
+      return { 
+        lucroClassico: 0, 
+        lucroPremium: 0,
+        recebidoClassico: 0,
+        recebidoPremium: 0,
+        taxaClassico: 0,
+        taxaPremium: 0
+      };
     }
 
     const custoUnitario = calcularCustoUnitario(
@@ -97,6 +104,10 @@ export function CenarioForm({ produtoId, cenario, onSuccess }: CenarioFormProps)
       config.taxaPremium
     );
 
+    // Valor recebido = Preço - Taxa ML (o que você recebe do ML)
+    const recebidoClassico = Number(precoVendaClassico) - taxaMLClassico;
+    const recebidoPremium = Number(precoVendaPremium) - taxaMLPremium;
+
     // Calcular lucros líquidos (simulação não tem frete, então frete = 0)
     const lucroClassico = calcularLucroLiquido(
       Number(precoVendaClassico),
@@ -113,7 +124,14 @@ export function CenarioForm({ produtoId, cenario, onSuccess }: CenarioFormProps)
       taxaMLPremium
     );
 
-    return { lucroClassico, lucroPremium };
+    return { 
+      lucroClassico, 
+      lucroPremium,
+      recebidoClassico,
+      recebidoPremium,
+      taxaClassico: taxaMLClassico,
+      taxaPremium: taxaMLPremium
+    };
   };
 
   const preview = calcularPreview();
@@ -235,27 +253,58 @@ export function CenarioForm({ produtoId, cenario, onSuccess }: CenarioFormProps)
       </div>
 
       {produto && config && precoVendaClassico && precoVendaPremium && (
-        <div className="space-y-2 p-4 bg-muted rounded-lg">
+        <div className="space-y-3 p-4 bg-muted rounded-lg">
           <div className="text-sm font-medium mb-2">Preview de Lucros:</div>
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <div className="text-xs text-muted-foreground">Lucro Clássico:</div>
-              <div
-                className={`text-lg font-bold ${
-                  preview.lucroClassico >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}
-              >
-                R$ {preview.lucroClassico.toFixed(2)}
+            {/* Clássico */}
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground border-b pb-1">
+                Anúncio Clássico ({config.taxaClassico}%)
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Valor Recebido:</div>
+                <div className="text-base font-semibold text-blue-600">
+                  R$ {preview.recebidoClassico.toFixed(2)}
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  (Taxa ML: -R$ {preview.taxaClassico.toFixed(2)})
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Lucro Líquido:</div>
+                <div
+                  className={`text-lg font-bold ${
+                    preview.lucroClassico >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}
+                >
+                  R$ {preview.lucroClassico.toFixed(2)}
+                </div>
               </div>
             </div>
-            <div>
-              <div className="text-xs text-muted-foreground">Lucro Premium:</div>
-              <div
-                className={`text-lg font-bold ${
-                  preview.lucroPremium >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}
-              >
-                R$ {preview.lucroPremium.toFixed(2)}
+
+            {/* Premium */}
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground border-b pb-1">
+                Anúncio Premium ({config.taxaPremium}%)
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Valor Recebido:</div>
+                <div className="text-base font-semibold text-blue-600">
+                  R$ {preview.recebidoPremium.toFixed(2)}
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  (Taxa ML: -R$ {preview.taxaPremium.toFixed(2)})
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Lucro Líquido:</div>
+                <div
+                  className={`text-lg font-bold ${
+                    preview.lucroPremium >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}
+                >
+                  R$ {preview.lucroPremium.toFixed(2)}
+                </div>
               </div>
             </div>
           </div>
