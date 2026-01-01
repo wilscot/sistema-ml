@@ -65,12 +65,6 @@ export function CompraList({ compras, loading = false, onDelete, onUpdate }: Com
     }).format(valor);
   };
 
-  const truncarTexto = (texto: string | null, maxLength: number = 50) => {
-    if (!texto) return '-';
-    if (texto.length <= maxLength) return texto;
-    return texto.substring(0, maxLength) + '...';
-  };
-
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -90,13 +84,14 @@ export function CompraList({ compras, loading = false, onDelete, onUpdate }: Com
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Nº Compra</TableHead>
               <TableHead>Produto</TableHead>
               <TableHead>Qtd Comprada</TableHead>
               <TableHead>Qtd Disponível</TableHead>
+              <TableHead>Status Entrega</TableHead>
               <TableHead>Custo Unitário</TableHead>
               <TableHead>Data Compra</TableHead>
               <TableHead>Fornecedor</TableHead>
-              <TableHead>Observações</TableHead>
               <TableHead className="text-center">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -105,8 +100,21 @@ export function CompraList({ compras, loading = false, onDelete, onUpdate }: Com
               const produto = produtos[compra.produtoId];
               const produtoNome = produto?.nome || `Produto #${compra.produtoId}`;
 
+              const quantidadeRecebida = compra.quantidadeRecebida || 0;
+              const statusEntrega = 
+                quantidadeRecebida === 0 ? 'pendente' :
+                quantidadeRecebida >= compra.quantidadeComprada ? 'completo' : 'parcial';
+
               return (
                 <TableRow key={compra.id}>
+                  <TableCell>
+                    <a 
+                      href={`/prod/compras/${compra.id}`}
+                      className="text-primary hover:underline font-mono text-sm font-semibold"
+                    >
+                      {compra.numeroCompra || `#${compra.id}`}
+                    </a>
+                  </TableCell>
                   <TableCell className="font-medium">{produtoNome}</TableCell>
                   <TableCell>{compra.quantidadeComprada}</TableCell>
                   <TableCell>
@@ -116,12 +124,29 @@ export function CompraList({ compras, loading = false, onDelete, onUpdate }: Com
                       compra.quantidadeDisponivel
                     )}
                   </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{quantidadeRecebida}/{compra.quantidadeComprada}</span>
+                      {statusEntrega === 'pendente' && (
+                        <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 text-xs rounded-full">
+                          Pendente
+                        </span>
+                      )}
+                      {statusEntrega === 'parcial' && (
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs rounded-full">
+                          Parcial
+                        </span>
+                      )}
+                      {statusEntrega === 'completo' && (
+                        <span className="px-2 py-0.5 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs rounded-full">
+                          Completo
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>{formatarMoeda(compra.custoUnitario)}</TableCell>
                   <TableCell>{formatarData(compra.dataCompra)}</TableCell>
                   <TableCell>{compra.fornecedor || '-'}</TableCell>
-                  <TableCell className="max-w-[200px]">
-                    {truncarTexto(compra.observacoes)}
-                  </TableCell>
                   <TableCell className="text-center">
                     <div className="flex gap-2 justify-center">
                       {/* Botão Editar */}

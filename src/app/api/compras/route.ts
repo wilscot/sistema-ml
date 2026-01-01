@@ -98,14 +98,29 @@ export async function POST(request: NextRequest) {
     const now = Math.floor(Date.now() / 1000);
     const quantidadeComprada = data.quantidadeComprada!;
 
+    // Gerar número da compra (C-YYYY-XXX)
+    const ano = new Date().getFullYear();
+    const ultimaCompra = db
+      .prepare("SELECT numeroCompra FROM compras WHERE numeroCompra LIKE ? ORDER BY id DESC LIMIT 1")
+      .get(`C-${ano}-%`) as any;
+    
+    let proximoNumero = 1;
+    if (ultimaCompra?.numeroCompra) {
+      const partes = ultimaCompra.numeroCompra.split('-');
+      proximoNumero = parseInt(partes[2]) + 1;
+    }
+    const numeroCompra = `C-${ano}-${String(proximoNumero).padStart(3, '0')}`;
+
     // Inserir compra
+    // quantidadeDisponivel e quantidadeRecebida começam em 0
+    // Estoque só aumenta quando registrar entregas
     const insertResult = db
       .prepare(
         `INSERT INTO compras (
           produtoId, precoUSD, cotacao, freteTotal, quantidadeComprada, 
-          quantidadeDisponivel, moeda, fornecedor, observacoes, 
-          custoUnitario, dataCompra, createdAt, updatedAt
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          quantidadeDisponivel, quantidadeRecebida, moeda, fornecedor, observacoes, 
+          custoUnitario, dataCompra, numeroCompra, createdAt, updatedAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         data.produtoId!,
@@ -113,12 +128,14 @@ export async function POST(request: NextRequest) {
         data.cotacao!,
         data.freteTotal!,
         quantidadeComprada,
-        quantidadeComprada, // quantidadeDisponivel começa igual a quantidadeComprada
+        0, // quantidadeDisponivel começa em 0 (aumenta nas entregas)
+        0, // quantidadeRecebida começa em 0
         data.moeda || 'USD',
         data.fornecedor || null,
         data.observacoes || null,
         custoUnitario,
         dataCompraTimestamp,
+        numeroCompra,
         now,
         now
       );
@@ -135,10 +152,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Incrementar estoque do produto
-    db.prepare(
-      'UPDATE produtos_prod SET quantidade = quantidade + ?, updatedAt = ? WHERE id = ?'
-    ).run(quantidadeComprada, now, data.produtoId!);
+    // NÃO incrementar estoque do produto aqui
+    // Estoque só aumenta quando registrar entregas via POST /api/entregas
 
     saveDb();
 

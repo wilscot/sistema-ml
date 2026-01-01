@@ -79,11 +79,13 @@ export const compras = sqliteTable('compras', {
   produtoId: integer('produtoId')
     .notNull()
     .references(() => produtosProd.id, { onDelete: 'cascade' }),
+  numeroCompra: text('numeroCompra').notNull().unique(),
   precoUSD: real('precoUSD').notNull(),
   cotacao: real('cotacao').notNull(),
   freteTotal: real('freteTotal').notNull(),
   quantidadeComprada: integer('quantidadeComprada').notNull(),
   quantidadeDisponivel: integer('quantidadeDisponivel').notNull(),
+  quantidadeRecebida: integer('quantidadeRecebida').notNull().default(0),
   moeda: text('moeda').notNull().default('USD'),
   fornecedor: text('fornecedor'),
   observacoes: text('observacoes'),
@@ -117,6 +119,25 @@ export const vendas = sqliteTable('vendas', {
     .notNull()
     .default(sql`(unixepoch())`),
 });
+
+export const entregas = sqliteTable('entregas', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  compraId: integer('compraId')
+    .notNull()
+    .references(() => compras.id, { onDelete: 'cascade' }),
+  quantidadeRecebida: integer('quantidadeRecebida').notNull(),
+  dataRecebimento: integer('dataRecebimento').notNull(),
+  codigoRastreio: text('codigoRastreio'),
+  fotoEtiqueta: text('fotoEtiqueta'),
+  observacoes: text('observacoes'),
+  createdAt: integer('createdAt')
+    .notNull()
+    .default(sql`(unixepoch())`),
+  deletedAt: integer('deletedAt'),
+});
+
+export type Entrega = typeof entregas.$inferSelect;
+export type NovaEntrega = typeof entregas.$inferInsert;
 
 export const configuracoesProd = sqliteTable('configuracoes_prod', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -154,6 +175,14 @@ export const comprasRelations = relations(compras, ({ one, many }) => ({
     references: [produtosProd.id],
   }),
   vendas: many(vendas),
+  entregas: many(entregas),
+}));
+
+export const entregasRelations = relations(entregas, ({ one }) => ({
+  compra: one(compras, {
+    fields: [entregas.compraId],
+    references: [compras.id],
+  }),
 }));
 
 export const vendasRelations = relations(vendas, ({ one }) => ({

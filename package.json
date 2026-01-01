@@ -16,6 +16,10 @@
     "db:corrigir-estoque": "tsx src/scripts/corrigir-estoque-retroativo.ts",
     "db:corrigir-pontual": "tsx src/scripts/corrigir-estoque-pontual.ts",
     "db:diagnosticar": "tsx src/scripts/diagnosticar-estoque.ts",
+    "db:migrar-entregas": "tsx src/scripts/migrar-entregas.ts",
+    "db:corrigir-estoque-compras": "tsx src/scripts/corrigir-estoque-compras.ts",
+    "db:entregas-retroativas": "tsx src/scripts/criar-entregas-retroativas.ts",
+    "db:recalcular-estoque": "tsx src/scripts/recalcular-estoque-final.ts",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
