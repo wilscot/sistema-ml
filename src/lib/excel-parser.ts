@@ -28,6 +28,7 @@ const STATUS_VALIDOS = [
   'Entregue',
   'Venda entregue',
   'A caminho',
+  'Etiqueta impressa',  // ← NOVO: vendas prontas para envio
   'Reclamação encerrada com reembolso parcial',
   'Combine a entrega',
 ];

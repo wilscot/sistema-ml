@@ -20,6 +20,8 @@
     "db:corrigir-estoque-compras": "tsx src/scripts/corrigir-estoque-compras.ts",
     "db:entregas-retroativas": "tsx src/scripts/criar-entregas-retroativas.ts",
     "db:recalcular-estoque": "tsx src/scripts/recalcular-estoque-final.ts",
+    "db:migrar-china": "tsx src/scripts/migrar-compras-china.ts",
+    "db:recalcular-china": "tsx src/scripts/recalcular-custo-china.ts",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

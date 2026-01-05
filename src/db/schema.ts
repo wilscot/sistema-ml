@@ -91,6 +91,11 @@ export const compras = sqliteTable('compras', {
   observacoes: text('observacoes'),
   custoUnitario: real('custoUnitario').notNull(),
   dataCompra: integer('dataCompra').notNull(),
+  // Campos para Compras China
+  tipoCompra: text('tipoCompra').default('normal'), // 'normal' | 'china'
+  freteEstimado: real('freteEstimado'), // valor inicial estimado
+  freteReal: real('freteReal').default(0), // soma dos lotes pagos
+  custoUnitarioLink: real('custoUnitarioLink'), // custo por unidade do link
   createdAt: integer('createdAt')
     .notNull()
     .default(sql`(unixepoch())`),
@@ -139,6 +144,41 @@ export const entregas = sqliteTable('entregas', {
 export type Entrega = typeof entregas.$inferSelect;
 export type NovaEntrega = typeof entregas.$inferInsert;
 
+// Lotes China - para tracking de compras fracionadas
+export const lotesChina = sqliteTable('lotes_china', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  compraId: integer('compraId')
+    .notNull()
+    .references(() => compras.id, { onDelete: 'cascade' }),
+  numeroLote: integer('numeroLote').notNull(),
+  quantidade: integer('quantidade').notNull().default(2),
+  
+  // Fase 1: Compra do Link
+  linkComprado: integer('linkComprado', { mode: 'boolean' }).notNull().default(false),
+  dataCompraLink: integer('dataCompraLink', { mode: 'timestamp' }),
+  valorLink: real('valorLink'),
+  custoUnitarioLink: real('custoUnitarioLink'),
+  ordemAliexpress: text('ordemAliexpress'),
+  
+  // Fase 2: Recebimento
+  recebido: integer('recebido', { mode: 'boolean' }).notNull().default(false),
+  dataRecebimento: integer('dataRecebimento', { mode: 'timestamp' }),
+  codigoRastreio: text('codigoRastreio'),
+  fotoEtiqueta: text('fotoEtiqueta'),
+  observacoes: text('observacoes'),
+  statusEntrega: text('statusEntrega').default('ok'), // 'ok' | 'problema' | 'extraviado'
+  
+  createdAt: integer('createdAt', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  updatedAt: integer('updatedAt', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+export type LoteChina = typeof lotesChina.$inferSelect;
+export type NovoLoteChina = typeof lotesChina.$inferInsert;
+
 export const configuracoesProd = sqliteTable('configuracoes_prod', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   taxaClassico: real('taxaClassico').notNull().default(11.0),
@@ -176,6 +216,14 @@ export const comprasRelations = relations(compras, ({ one, many }) => ({
   }),
   vendas: many(vendas),
   entregas: many(entregas),
+  lotesChina: many(lotesChina),
+}));
+
+export const lotesChinaRelations = relations(lotesChina, ({ one }) => ({
+  compra: one(compras, {
+    fields: [lotesChina.compraId],
+    references: [compras.id],
+  }),
 }));
 
 export const entregasRelations = relations(entregas, ({ one }) => ({

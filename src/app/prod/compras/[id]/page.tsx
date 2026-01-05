@@ -40,6 +40,12 @@ export default function CompraDetalhesPage() {
         return;
       }
       
+      // Redirecionar para tracking se for compra China
+      if (dataCompra.compra.tipoCompra === 'china') {
+        router.push(`/prod/compras/${compraId}/tracking`);
+        return;
+      }
+
       setCompra(dataCompra.compra);
       setObservacoes(dataCompra.compra.observacoes || '');
       setObsModificada(false);
