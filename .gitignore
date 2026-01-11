@@ -39,11 +39,14 @@ db/data.db-shm
 db/data.db-wal
 *.db-shm
 *.db-wal
-# Permitir commit do banco principal
+# TEMPORÁRIO: Permitir commit do banco principal para primeiro deploy
+# TODO: Após primeiro deploy, remover esta linha e usar migrations/seeds
 !data/sistema-ml.db
 # Ignorar backups e outros bancos
 data/*.backup*.db
 data/sistema-ml-backup*.db
+data/*.db-shm
+data/*.db-wal
 
 # IDE
 .vscode
