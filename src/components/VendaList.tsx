@@ -286,7 +286,7 @@ export default function VendaList({ vendas, produtos, loading, onDelete }: Venda
             {vendasFiltradas.length === 0 && filtroProduto && (
               <tr>
                 <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
-                  Nenhuma venda encontrada para "{filtroProduto}"
+                  Nenhuma venda encontrada para &quot;{filtroProduto}&quot;
                 </td>
               </tr>
             )}

@@ -234,7 +234,7 @@ export function LixeiraList({
                     <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle>
-                          Deletar "{produto.nome}" PERMANENTEMENTE?
+                          Deletar &quot;{produto.nome}&quot; PERMANENTEMENTE?
                         </AlertDialogTitle>
                         <AlertDialogDescription>
                           Esta ação não pode ser desfeita. O produto será

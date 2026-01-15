@@ -128,6 +128,7 @@ export function CompraForm({ onSuccess }: CompraFormProps) {
 
       const data: CompraInput = {
         produtoId: parseInt(produtoId),
+        numeroCompra: '', // Será gerado pela API
         precoUSD: typeof precoUSD === 'number' ? precoUSD : parseFloat(precoUSD.toString()),
         cotacao: typeof cotacao === 'number' ? cotacao : parseFloat(cotacao.toString()),
         freteTotal: typeof freteTotal === 'number' ? freteTotal : parseFloat(freteTotal.toString()),
@@ -135,6 +136,7 @@ export function CompraForm({ onSuccess }: CompraFormProps) {
           typeof quantidadeComprada === 'number'
             ? quantidadeComprada
             : parseInt(quantidadeComprada.toString()),
+        quantidadeRecebida: 0, // Começa em 0, será atualizado com entregas
         fornecedor: fornecedor || null,
         dataCompra: dataCompraTimestamp,
         observacoes: observacoes || null,
@@ -247,7 +249,6 @@ export function CompraForm({ onSuccess }: CompraFormProps) {
           const novoProdutoCompleto: ProdutoProd = {
             id: novoProduto.id,
             nome: novoProduto.nome,
-            tipo: 'PROD',
             quantidade: 0,
             deletedAt: null,
             fornecedor: null,

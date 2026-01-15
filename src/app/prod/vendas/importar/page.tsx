@@ -613,7 +613,7 @@ export default function ImportarVendasPage() {
             {/* AVISO SE NENHUMA VENDA FILTRADA */}
             {vendasFiltradas.length === 0 && termoBusca && (
               <div className="text-center py-8 text-muted-foreground border border-dashed rounded-lg">
-                <p className="mb-2">Nenhuma venda encontrada com "{termoBusca}"</p>
+                <p className="mb-2">Nenhuma venda encontrada com &quot;{termoBusca}&quot;</p>
                 <Button
                   variant="outline"
                   size="sm"
@@ -713,7 +713,7 @@ export default function ImportarVendasPage() {
                                   dangerouslySetInnerHTML={{
                                     __html: venda.tituloAnuncio.replace(
                                       new RegExp(termoBusca.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
-                                      (match) => `<mark class="bg-yellow-200 dark:bg-yellow-800">${match}</mark>`
+                                      (match: string) => `<mark class="bg-yellow-200 dark:bg-yellow-800">${match}</mark>`
                                     ),
                                   }}
                                 />

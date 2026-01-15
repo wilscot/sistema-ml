@@ -98,4 +98,3 @@ corrigirEstoquePontual()
     console.error('Erro:', err);
     process.exit(1);
   });
-

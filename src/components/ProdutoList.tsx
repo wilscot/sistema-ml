@@ -197,7 +197,7 @@ export function ProdutoList({
                           <AlertDialogHeader>
                             <AlertDialogTitle>Exportar para PROD</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Exportar "{produto.nome}" para PROD? O produto original
+                              Exportar &quot;{produto.nome}&quot; para PROD? O produto original
                               permanecerá em LAB.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
@@ -233,7 +233,7 @@ export function ProdutoList({
                         <AlertDialogHeader>
                           <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Tem certeza que deseja deletar o produto "{produto.nome}"?
+                            Tem certeza que deseja deletar o produto &quot;{produto.nome}&quot;?
                             Esta ação não pode ser desfeita.
                           </AlertDialogDescription>
                         </AlertDialogHeader>

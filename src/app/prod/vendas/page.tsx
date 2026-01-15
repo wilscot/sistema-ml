@@ -9,20 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import VendaForm from '@/components/VendaForm';
 import VendaList from '@/components/VendaList';
 import LoadingSpinner from '@/components/LoadingSpinner';
-
-interface Venda {
-  id: number;
-  produtoId: number;
-  quantidadeVendida: number;
-  precoVenda: number;
-  tipoAnuncio: 'CLASSICO' | 'PREMIUM';
-  freteCobrado: number;
-  taxaML: number;
-  custoTotal: number;
-  lucroLiquido: number;
-  data: number;
-  createdAt: number;
-}
+import type { Venda } from '@/types/venda';
 
 interface Produto {
   id: number;

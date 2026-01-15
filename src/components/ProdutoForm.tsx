@@ -108,6 +108,7 @@ export function ProdutoForm({ modo, produto, onSuccess }: ProdutoFormProps) {
         data = {
           nome,
           fornecedor: fornecedor || null,
+          quantidade: 0,
         };
         validation = validarProdutoProd(data as ProdutoProdInput);
       }
